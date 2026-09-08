@@ -4,8 +4,12 @@ Companion to `gamut-tool-spec.md` (the contract). This file says **where** thing
 fixes the conventions that more than one module depends on. Where this document and the
 spec disagree, the spec wins.
 
-Status: skeleton written, no implementation yet. Every `src/**` module below currently
-contains only its instruction header.
+Status: **v1 complete**. Every module below is implemented and every step of section 4 is
+done. 149 tests pass (colour maths and geometry only, per CLAUDE.md); lint and `tsc -b`
+are clean.
+
+One feature is deliberately incomplete: the **atmospheric** preset, whose geometry the
+spec names but never defines. See section 5 and the note in `mask/presets.ts`.
 
 ---
 
@@ -116,26 +120,54 @@ not equally saturated). Correcting it per hue would reintroduce the machinery 0.
 
 ---
 
-## 4. Build order
+## 4. Build order — all done
 
 1. `color/oklab.ts` + tests — nothing else can be checked until this is right
 2. `color/wheel.ts` + tests
 3. `color/render.ts`, `color/format.ts`
 4. `geom/polygon.ts` + tests, `geom/transform.ts` + tests
 5. `geom/sample.ts` + tests
-6. `mask/presets.ts`
+6. `mask/presets.ts` (atmospheric excepted)
 7. `state/types.ts`, `state/reducer.ts`
 8. `index.css` / `App.css` greys, then `WheelCanvas` -> `MaskOverlay` -> `MaskPanel` -> `SampleList`
+
+### Corrections the build forced on this document
+
+Recorded because each one contradicts something written above or in the spec:
+
+- **`GAMUT_EPS` must be looser than the matrices' own precision.** Ottosson's constants
+  carry 10 decimals, so a round trip drifts up to 2.6e-7 and a saturated rim colour lands
+  1.3e-7 outside the cube. A tighter epsilon chroma-reduces colours that are exactly on
+  the boundary.
+- **D35's "further out is more saturated" is not exact.** Chroma reduction clamps to the
+  gamut boundary, whose chroma at constant `L` shrinks as `L` falls toward a dark rim.
+  Near blue, chroma dips by up to 2.3e-4 — a fifth of an 8-bit step, invisible but real.
+- **Rotation and uniform scaling commute**, so the order of the inverse steps in
+  `toBasePoint` is not load-bearing. An earlier version of this plan implied otherwise.
+  What actually breaks invertibility is the D22 clamp.
+- **Nothing may key off `signedArea` for a mask.** It is the algebraic area, and a
+  symmetric bowtie — a shape D24 explicitly permits — measures exactly zero. The sampler
+  seeds its pitch from the bounding box instead.
+- **D25's shortfall looks unreachable.** The pitch adapts to the mask, so a smaller mask
+  just gets a finer grid; 4000 random degenerate polygons all still yielded N. The branch
+  is implemented and correct but defensive.
 
 Steps 1-6 are pure functions with no React and no DOM. They carry all the tests
 (CLAUDE.md: colour maths and geometry only, no UI tests).
 
 ---
 
-## 5. Open question
+## 5. Open questions
 
 `mask/presets.ts` — the spec names four presets (F4) and fixes that they are defined in
 radius ratios and overwrite without confirmation (D23), but it does not define the geometry
 of the **atmospheric** mask. Triad, split-complementary and analogous wedge follow from
 their names. Atmospheric needs a decision before that file can be written; see the note in
 `presets.ts`.
+
+Two further questions surfaced during the build, neither blocking:
+
+- **D35's wording** — whether to amend the parenthetical, given the measured chroma dip.
+- **Minimum sample spacing** — today a radius-0.002 mask still returns 12 samples, which
+  are 12 near-identical greys. A minimum spacing would make D25 meaningful and arguably
+  produce more useful output, but it is a design change, not a fix.
