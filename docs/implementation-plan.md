@@ -157,17 +157,36 @@ Steps 1-6 are pure functions with no React and no DOM. They carry all the tests
 
 ---
 
-## 5. Open questions
+## 5. Resolved questions
 
-`mask/presets.ts` — the spec names four presets (F4) and fixes that they are defined in
-radius ratios and overwrite without confirmation (D23), but it does not define the geometry
-of the **atmospheric** mask. Triad, split-complementary and analogous wedge follow from
-their names. Atmospheric needs a decision before that file can be written; see the note in
-`presets.ts`.
+All three questions that were open during the build are settled, in spec version 0.10:
 
-Two further questions surfaced during the build, neither blocking:
+- **Atmospheric preset geometry** → D38. An off-centre blob, chosen because rotation and
+  scaling both pivot on the wheel centre, so an off-centre mask is the only one of the
+  three candidates the existing controls cannot already produce.
+- **Minimum sample spacing** → D39. Pitch floors at 0.015 wheel units, which makes D25's
+  shortfall reachable rather than dead.
+- **D35's wording** → amended, recording the measured chroma dip.
 
-- **D35's wording** — whether to amend the parenthetical, given the measured chroma dip.
-- **Minimum sample spacing** — today a radius-0.002 mask still returns 12 samples, which
-  are 12 near-identical greys. A minimum spacing would make D25 meaningful and arguably
-  produce more useful output, but it is a design change, not a fix.
+## 6. Known issues, not yet decided
+
+- **List order across the 0/360 seam.** D17 says sort by angle, and the sampler does. But
+  a mask straddling 0 degrees — the default analogous wedge does, spanning 339 to 21 —
+  gets split across the two ends of the list: hues 0-21 first, 339-349 last. The colours
+  that sit next to each other on the wheel land at opposite ends of the grid. Sorting by
+  angle relative to the mask's own angular centre, unwrapped, would read correctly and is
+  a small change, but it departs from a literal reading of D17, so it is the author's
+  call.
+- **Handle crowding at small mask sizes.** Handles are a fixed size in wheel space while
+  the mask shrinks, so below roughly 40% size the vertices of an arc-based preset overlap.
+  Scale up to edit. The spec has no notion of handle density.
+- **Constants awaiting a calibrated eye.** `--mask-wash-opacity` (0.58) and the preset
+  radii in `mask/presets.ts` were set by eye in a browser, not on a colour-managed
+  display. They are named constants for exactly this reason.
+
+## 7. The one named later candidate
+
+Section 7 of the spec lists saving and loading state as the only future candidate. D18 is
+already satisfied — the state is JSON-serialisable in shape and has a test asserting it
+survives a round trip — so this is additive and needs no refactor. `dragging` is the one
+field to exclude.
