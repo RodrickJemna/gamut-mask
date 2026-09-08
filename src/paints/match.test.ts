@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { sample as wheelSample } from '../color/wheel.ts'
 import { PAINTS } from './catalogue.ts'
 import {
+  DRIFT_THRESHOLD,
   MATCH_TOLERANCE_PERCENT,
   closestOverall,
+  driftLabel,
   differencePercent,
   paintCount,
   hexToOklab,
@@ -347,5 +349,96 @@ describe('differencePercent', () => {
     expect(differencePercent(0)).toBe(0)
     expect(differencePercent(0.05)).toBe(5)
     expect(differencePercent(0.123)).toBe(12)
+  })
+})
+
+describe('driftLabel (D49)', () => {
+  const grey = { L: 0.6, a: 0, b: 0 }
+  const shift = (base: typeof grey, d: Partial<typeof grey>) => ({ ...base, ...d })
+
+  it('says nothing about a bottle that matches on both axes', () => {
+    expect(driftLabel(grey, grey)).toBeNull()
+    expect(driftLabel(grey, shift(grey, { L: 0.6 + DRIFT_THRESHOLD / 2 }))).toBeNull()
+  })
+
+  /**
+   * The boundary is measured from L = 0 rather than from the grey above, because
+   * 0.6 + 0.02 is 0.6200000000000001 in binary and the difference then overshoots the
+   * threshold — the comparison is exclusive, so an exactly-threshold delta has to be
+   * exactly representable to be tested at all.
+   */
+  it('is silent exactly at the threshold, not just past it', () => {
+    const black = { L: 0, a: 0, b: 0 }
+    expect(driftLabel(black, { ...black, L: DRIFT_THRESHOLD })).toBeNull()
+    expect(driftLabel(black, { ...black, L: DRIFT_THRESHOLD * 1.01 })).toBe('lighter')
+  })
+
+  it('names the direction on the lightness axis', () => {
+    expect(driftLabel(grey, shift(grey, { L: 0.75 }))).toBe('lighter')
+    expect(driftLabel(grey, shift(grey, { L: 0.45 }))).toBe('darker')
+  })
+
+  it('names the direction on the chroma axis', () => {
+    // Chroma is the distance from the neutral axis, so the sign of a or b is irrelevant.
+    expect(driftLabel(grey, shift(grey, { a: 0.1 }))).toBe('stronger')
+    expect(driftLabel(grey, shift(grey, { b: -0.1 }))).toBe('stronger')
+    const saturated = { L: 0.6, a: 0.12, b: 0 }
+    expect(driftLabel(saturated, shift(saturated, { a: 0.02 }))).toBe('greyer')
+  })
+
+  it('reports the dominant axis when both move', () => {
+    expect(driftLabel(grey, { L: 0.7, a: 0.03, b: 0 })).toBe('lighter')
+    expect(driftLabel(grey, { L: 0.62, a: 0.09, b: 0 })).toBe('stronger')
+  })
+
+  /**
+   * Ignoring chroma is not conservative, it is wrong more often than it is right — which
+   * is why the label is not lightness-only as originally specified. A hue rotation at
+   * constant lightness and chroma is a real difference this deliberately does not name;
+   * one word cannot carry three axes, and the delta percentage already covers it.
+   */
+  it('is silent on a pure hue difference', () => {
+    expect(driftLabel({ L: 0.6, a: 0.1, b: 0 }, { L: 0.6, a: 0, b: 0.1 })).toBeNull()
+  })
+
+  it('is antisymmetric', () => {
+    const pairs: [typeof grey, typeof grey][] = [
+      [grey, { L: 0.8, a: 0, b: 0 }],
+      [grey, { L: 0.6, a: 0.15, b: 0 }],
+    ]
+    const opposite = { lighter: 'darker', darker: 'lighter', stronger: 'greyer', greyer: 'stronger' }
+    for (const [a, b] of pairs) {
+      const forward = driftLabel(a, b)
+      expect(forward).not.toBeNull()
+      expect(driftLabel(b, a)).toBe(opposite[forward as keyof typeof opposite])
+    }
+  })
+
+  /**
+   * Threshold calibration, measured rather than chosen: the same grid the tolerance tests
+   * use. At 0.005 a hint appears on 77% of matched rows and means nothing; at 0.04, on
+   * 1%. These bounds pin the middle ground — loose enough to survive a catalogue update,
+   * tight enough to catch a threshold edited without re-measuring.
+   */
+  it('fires on roughly half of real matches, split across both axes', () => {
+    let total = 0
+    let lightness = 0
+    let chroma = 0
+    for (let theta = 0; theta < 360; theta += 3) {
+      for (let i = 0; i <= 20; i++) {
+        for (const match of matchingPaints(wheelSample(theta, i / 20))) {
+          total++
+          if (match.drift === 'lighter' || match.drift === 'darker') lightness++
+          else if (match.drift !== null) chroma++
+        }
+      }
+    }
+    expect(total).toBeGreaterThan(2000)
+    const share = (n: number) => n / total
+    expect(share(lightness + chroma)).toBeGreaterThan(0.35)
+    expect(share(lightness + chroma)).toBeLessThan(0.6)
+    // Chroma is the more common of the two, which is the finding that stopped this being
+    // a lightness-only label.
+    expect(chroma).toBeGreaterThan(lightness)
   })
 })

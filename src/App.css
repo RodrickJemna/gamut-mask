@@ -430,6 +430,18 @@
   border-color: var(--border-strong);
 }
 
+/*
+ * The drift word (D49). Deliberately the quietest thing on the row: it is a caveat on the
+ * match above it, so it must not compete with the paint name you are looking for.
+ */
+.sample-drift {
+  margin-left: 4px;
+  font-family: var(--font);
+  font-size: 9px;
+  font-style: italic;
+  color: var(--text-dim);
+}
+
 /* Mirrors the ring drawn on the wheel, so the pairing is legible in both directions. */
 .sample.highlighted {
   border-color: var(--focus);

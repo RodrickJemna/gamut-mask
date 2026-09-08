@@ -24,6 +24,11 @@
  * The lightness column is a DERIVED consequence, not a control (D16): no L slider, no
  * value ramp, no sorting by lightness.
  *
+ * Each matched row also carries ONE word for how the bottle differs from the swatch —
+ * darker, lighter, greyer or stronger (D49). It is a comparison between two known
+ * colours, not a lightness axis on the wheel (D16): see driftLabel in paints/match.ts for
+ * why chroma is reported alongside lightness rather than lightness alone.
+ *
  * PAINT MATCHING (D40, D44, D48) lists the nearest bottle in each ENABLED brand that is
  * within the 5% tolerance — all that qualify, or "No paint found" when none do. With no
  * brands enabled the paint lines are omitted altogether: nothing was searched, so
@@ -144,7 +149,13 @@ export function SampleList({ samples, brands, highlighted, onHighlight }: Props)
                               ? matches
                                   .map(
                                     (m) =>
-                                      `${m.paint.brand} ${m.paint.ref} ${m.paint.name} (${m.paint.range})`,
+                                      `${m.paint.brand} ${m.paint.ref} ${m.paint.name} (${m.paint.range})` +
+                                      // Spelt out here, where there is room for a
+                                      // sentence, since one word on the row cannot say
+                                      // what it is being compared against.
+                                      (m.drift === null
+                                        ? ''
+                                        : `\nThe catalogue swatch of this bottle is ${m.drift} than the colour above.`),
                                   )
                                   .join('\n')
                               : 'Copy hex — no paint within 5%'
@@ -179,6 +190,11 @@ export function SampleList({ samples, brands, highlighted, onHighlight }: Props)
                                   </span>
                                   <span className="sample-delta">
                                     &Delta;{differencePercent(m.distance)}%
+                                    {/* One word for the dominant deviation, when there
+                                        is one — see driftLabel in paints/match.ts. */}
+                                    {m.drift !== null && (
+                                      <span className="sample-drift">{m.drift}</span>
+                                    )}
                                   </span>
                                 </span>
                               ))

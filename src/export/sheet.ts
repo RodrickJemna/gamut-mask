@@ -283,7 +283,9 @@ function drawEntry(
   }
   matches.forEach((m, row) => {
     const lineY = top + 9 + row * 9
-    const delta = `${differencePercent(m.distance)}%`
+    // The drift word (D49) rides on the delta cell, so it stays right-aligned with the
+    // percentages and the paint name absorbs the width it takes.
+    const delta = `${differencePercent(m.distance)}%${m.drift === null ? '' : ` ${m.drift}`}`
     const deltaX = x + colW - 20 - c.measure(delta, 7.5)
     c.text(textX, lineY, BRAND_TAG[m.paint.brand], { size: 6.5, bold: true, hex: DIM })
     c.text(textX + 16, lineY, m.paint.ref, { size: 7.5, bold: true, hex: TEXT })
