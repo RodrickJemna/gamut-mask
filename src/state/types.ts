@@ -46,8 +46,6 @@ export type AppState = {
   rotation: number
   /** Scale factor about the wheel centre (F5). */
   size: number
-  /** N, default 12, range 4-32 (D17). */
-  sampleCount: number
   /** Which preset produced basePolygon; null once hand-edited. Drives button state only. */
   preset: PresetId | null
   /**
@@ -71,7 +69,6 @@ export type Action =
   | { type: 'dragMask'; deltaDisplay: Point; offsetAtStart: Point }
   | { type: 'setRotation'; deg: number }
   | { type: 'setSize'; factor: number }
-  | { type: 'setSampleCount'; n: number }
   | { type: 'beginDrag'; index: number }
   | { type: 'endDrag' }
 

@@ -12,8 +12,6 @@ import { buildPreset, type PresetId } from '../mask/presets.ts'
 import type { Action, AppState } from './types.ts'
 
 export const MIN_VERTICES = 3
-export const MIN_SAMPLES = 4
-export const MAX_SAMPLES = 32
 /** Below this the mask is unusably small; above 1 every vertex would clamp to the rim. */
 export const MIN_SIZE = 0.05
 export const MAX_SIZE = 1
@@ -25,7 +23,6 @@ export const initialState: AppState = {
   offset: { x: 0, y: 0 },
   rotation: 0,
   size: 1,
-  sampleCount: 12,
   preset: DEFAULT_PRESET,
   dragging: null,
 }
@@ -191,11 +188,6 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'setSize': {
       const factor = clamp(action.factor, MIN_SIZE, MAX_SIZE)
       return factor === state.size ? state : { ...state, size: factor }
-    }
-
-    case 'setSampleCount': {
-      const n = Math.round(clamp(action.n, MIN_SAMPLES, MAX_SAMPLES))
-      return n === state.sampleCount ? state : { ...state, sampleCount: n }
     }
 
     case 'beginDrag':

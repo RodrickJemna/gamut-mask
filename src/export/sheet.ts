@@ -54,7 +54,6 @@ export type SheetContent = {
   preset: string | null
   rotation: number
   size: number
-  requested: number
 }
 
 export type SheetInput = SheetContent & {
@@ -93,7 +92,7 @@ export function layoutSheet(
   input: SheetContent,
   options: LayoutOptions,
 ): number {
-  const { samples, polygon, preset, rotation, size, requested } = input
+  const { samples, polygon, preset, rotation, size } = input
   let c = surface
   let y = 0
 
@@ -142,12 +141,7 @@ export function layoutSheet(
     ['Preset', preset ? preset : 'Hand-drawn'],
     ['Rotation', `${Math.round(rotation)}°`],
     ['Size', `${Math.round(size * 100)}%`],
-    [
-      'Colours',
-      samples.length < requested
-        ? `${samples.length} of ${requested} requested`
-        : String(samples.length),
-    ],
+    ['Colours', String(samples.length)],
     ['Vertices', String(polygon.length)],
   ]
   for (const [label, value] of rows) {

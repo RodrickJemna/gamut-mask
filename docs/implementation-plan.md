@@ -37,7 +37,7 @@ src/
     polygon.test.ts
     transform.ts            translate, rotate/scale about centre               F5, D22, D42
     transform.test.ts
-    sample.ts               deterministic sampling: grid + Lloyd          D17, D25
+    sample.ts               centre + vertices + edge midpoints          D17, D25, D47
     sample.test.ts
 
   mask/
@@ -198,8 +198,10 @@ All three questions that were open during the build are settled, in spec version
   Scale up to edit. The spec has no notion of handle density.
 - **Export lands in the browser's download folder**, not beside the HTML. No page can
   create a folder next to itself; see D43.
-- **At 1280x720 the colour list still scrolls internally** with two brand rows per card;
-  the wheel, controls and the D10 caveat all stay visible. It fits fully at 1512x860.
+- **The colour list is much shorter since D47** — seven colours for a triad, eight to
+  eleven for the arc presets — so it fits comfortably at 1280x720 as well. A hand-drawn
+  mask with many vertices can still overflow the column, which scrolls internally while
+  the wheel and controls stay put.
 - **Paint coverage is partial, by brand.** AK: 647 from the equivalence tables (3GEN plus
   the AFV/FIG/AIR series) and the Real Colors grids; excluded are the pigment powders and
   auxiliary products, and two rows with no swatch at all (AK11001 White, AK11191 Gold).

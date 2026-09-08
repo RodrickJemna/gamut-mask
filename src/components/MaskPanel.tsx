@@ -12,7 +12,7 @@
 
 import { useState } from 'react'
 import { PRESETS } from '../mask/presets.ts'
-import { MAX_SAMPLES, MAX_SIZE, MIN_SAMPLES, MIN_SIZE } from '../state/reducer.ts'
+import { MAX_SIZE, MIN_SIZE } from '../state/reducer.ts'
 import type { Action, AppState } from '../state/types.ts'
 
 type Props = {
@@ -87,21 +87,6 @@ export function MaskPanel({ state, dispatch, onSaveSheet, onSaveJpeg }: Props) {
             step={0.01}
             value={state.size}
             onChange={(e) => dispatch({ type: 'setSize', factor: e.currentTarget.valueAsNumber })}
-          />
-        </label>
-
-        <label className="slider">
-          <span>Colors</span>
-          <span className="value">{state.sampleCount}</span>
-          <input
-            type="range"
-            min={MIN_SAMPLES}
-            max={MAX_SAMPLES}
-            step={1}
-            value={state.sampleCount}
-            onChange={(e) =>
-              dispatch({ type: 'setSampleCount', n: e.currentTarget.valueAsNumber })
-            }
           />
         </label>
       </section>

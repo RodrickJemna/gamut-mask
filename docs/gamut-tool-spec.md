@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.18
+Verzió: 0.19
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -44,7 +44,7 @@ Referencia: James Gurney, *Color and Light* — gamut masking, YURMBY-kör.
 | F3 | Hat anchor-sugár + R Y G C B M betűk | állandó, nem elrejthető |
 | F4 | Mask presetek: triád, split-komplementer, analóg ék, atmoszférikus | paraméteres |
 | F5 | Mask rotálása a közép körül + skálázása + **mozgatása** (D42) | Gurney-workflow |
-| F6 | A maskon belüli színek listája: swatch + hex + világosság + telítettség | auto rács, N csúszka |
+| F6 | A maskon belüli színek listája: swatch + hex + világosság + telítettség | a mask geometriájából (D47), nincs N csúszka |
 | F7 | Semleges (mid-grey) UI chrome | szimultán kontraszt miatt követelmény |
 
 ### „Done" v1-re
@@ -90,9 +90,11 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
 - **D23 — Presetek rádiusz-arányban definiálva.** Preset betöltése felülírja az
   aktuális polygont, megerősítés nélkül.
 - **D24 — Nem-konvex polygon engedve**, even-odd szabállyal. Önátmetszés nincs tiltva.
-- **D17 — Determinisztikus mintavételezés**: fix rács a maskon belül, rácsméret
-  binárisan keresve N-hez, majd 2–3 Lloyd-iteráció. Random mintavétel a mask minden
-  mozgatásánál újravillogó listát adna. N default 12, range 4–32. Rendezés szög szerint.
+- **D17 — Determinisztikus mintavételezés, szög szerint rendezve.** Random mintavétel a
+  mask minden mozgatásánál újravillogó listát adna. A *mechanizmus* a 0.19-ben lecserélve
+  (lásd D47): a rács + bináris rácsméret-keresés + Lloyd-iterációk kiestek, helyettük a
+  mask geometriája adja a mintákat. A determinizmus és a szög szerinti rendezés áll; az
+  N (default 12, range 4–32) tárgytalan.
 - **D25 — Túl kicsi mask**: ha N minta nem fér el, kevesebb jön, és a UI a tényleges
   számot írja ki.
 - **D28 — A maskon kívüli terület tompítva**, nem kivágva: fekete wash a körön belül,
@@ -132,6 +134,32 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D47 — A minták a mask geometriájából**: a lista a mask **középpontja**, a **csúcsai**,
+  és minden **él felezőpontja**. Egy triádnál ez hét szín — három hue a sarkokban, három
+  tompított keverék az élek felén, és a semleges a közepén —, azaz egy limitált paletta
+  úgy, ahogy egy festő valóban kirakja.
+  - **Miért nem a rács + Lloyd**: az egyenletes szórás a mask *területét* írja le
+    tisztességesen, de nem paletta. A választott pontok önkényesek voltak, és egyik sem
+    volt sem a sarok, sem a semleges, amiből az ember kever. A csere egyben törölte a
+    rácsméret-keresést, a cell-capet és a raszteres Lloyd-menetet a hibalehetőségeikkel.
+  - **Minimum-szeparáció `0.05` Oklabban**, ami *pont a festék-illesztés toleranciája*
+    (D40): két ennél közelebbi szín ugyanarra a tégelyre illeszkedik, tehát mindkettőt
+    kilistázni zaj, nem információ. Főleg az ív-alapú preseteknél számít, amiknek a
+    csúcsai a görbe simaságáért vannak, nem jelölnek semmit: nyersen az analóg ék 31, az
+    atmoszférikus 29 jelöltet ad, szinte mindet szomszéd-duplikátumként; szeparálva 8-at
+    és 10-et. A triád és a split mind a 7-et megtartja.
+  - **A darabszám az alakot követi**, nem egy csúszkát: egy csúcs hozzáadása két új
+    jelölt. A **Colors csúszka megszűnt** — nem volt már mit szabályoznia (F6).
+  - **A D25 ezzel valóra vált**: egy elég kicsire zsugorított mask jelöltjei egymásba
+    esnek, tehát tényleg kevesebb szín jön — amit a D25 mindig is leírt, és amit a régi
+    rács-mintavevő soha nem tett meg. A **D39** ezzel tárgytalan, az 5. pontba került.
+  - **A csúcsok a határon vannak, nem szigorúan belül.** Szándékos: a sarok színe a
+    paletta széle, azt érdemes mutatni, és a kör színe egy pontban attól függetlenül
+    definiált, hogy a kontúr melyik oldalára esik.
+  - **A semlegesnek nincs hue-ja**, ezért `theta = 0`-ra és az origóra van snappelve —
+    különben a szimmetrikus mask centroidjának ~1e-17-es koordinátáiból zaj-szöget
+    olvasnánk, ami instabil rendezést adott —, és a listában **saját „Neutral" csoportot**
+    kap; egy szürkét hue-szeletbe sorolni hazugság lenne.
 - **D46 — Hover-kiemelés a listáról a körre**: a színlista egy sora fölé érve a körön
   megjelenik egy gyűrű annál a mintánál. Fókuszra is, nem csak hoverre — a sorok eleve
   `<button>`-ök, tehát a billentyűzetes végigtabolás ingyen megkapja.
@@ -279,21 +307,6 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
     tesz: minden tompul és egy hue felé húz.
   - **Mellékhatás, kívánatos**: ennél a presetnél a két csúszka önálló jelentést kap —
     a rotate a „légkör hue-ja", a size a „mennyire párás".
-- **D39 — Mintavételi minimum-osztás**: a rácsméret-keresés nem megy `0.015` wheel-egység
-  alá (`MIN_PITCH`).
-  - **Miért kell**: nélküle a rácsméret korlátlanul alkalmazkodik a mask méretéhez, tehát
-    a mask zsugorítása csak finomítja a rácsot, és N mindig elfér. A D25 ennek az
-    ellenkezőjét feltételezi, és a szándéka nem érvényesült: egy `r = 0.002` mask is 12
-    mintát adott, ami 12 megkülönböztethetetlen szürke.
-  - **Miért `0.015`**: mérve. Radiálisan `0.015`-öt lépve az sRGB kimenet ~3/255-tel
-    változik, a semleges közép környékén — a legsimább tartományban, ahol egy pici mask
-    él — pontosan 3-mal. Ez alatt a minták a koordinátájukon kívül duplikátumok.
-  - **Hatása**: `r < ~0.05` alatt kezd fogni. `r = 0.06` → 8 minta, `r = 0.02` → 2,
-    `r = 0.01` → 1, és minden minta eltérő hex. Normál méretű maskot nem érint: mind a
-    négy preset N = 12-re és N = 32-re is pontosan annyit ad.
-  - **Amit nem állít**: a közép közelében két minta akármilyen távol is közel-szürke; ezt
-    osztás-szabály nem javítja. A padló azt akadályozza meg, hogy a mintavevő több színt
-    jelentsen, mint amennyit a terület tartalmazni tud — pontosan a D25 lényege.
 
 ---
 
@@ -309,6 +322,8 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
 | D11 | „Nincs festék-adatbázis és festék-illesztés, sem később" | Új követelmény érkezett; a szerző újranyitotta. Lásd D40. A „sem később" innentől nem áll. |
 | D13 | „Nincs export v1-ben" | Részlegesen visszavonva: PDF-lap export van (D43). A vágólapra másolás megmaradt. PNG/JSON export továbbra sincs. |
 | D29 | Szabálytalan cusp-kontúr kirajzolása | Nincs szabálytalan perem, a diszk kerek. |
+| D39 | Mintavételi minimum-osztás (`MIN_PITCH`) | Tárgytalan: a rács-mintavevővel együtt kiesett. A D47 perceptuális szeparációja tölti be ugyanezt a szerepet. |
+| D17 mechanizmusa | Rács + bináris rácsméret-keresés + Lloyd, N csúszkával | A minták most a mask geometriájából jönnek (D47). A determinizmus és a szög szerinti rendezés megmaradt. |
 | D31 | Kétféle „nem elérhető" jelölés | Csak egy van: maskon kívül (D28). |
 | D33 | OkLCh anchor hue-k közti monoton interpoláció | Összeomlik identitásra: a YURMBY-szög maga az sRGB hue. |
 | — | Kép-input, export, value-ramp | Felhasználói scope-döntések, lásd D12, D13, D16. (A festék-illesztés visszatért: D40.) |
@@ -399,3 +414,6 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
 - 0.17 — **hover-kiemelés (D46)**: a listáról a körre. Additív, semmit nem von vissza.
 - 0.18 — **hibajavítás (D42)**: az offset a skálázás után alkalmazva, így egy kicsi mask is
   a peremig mozgatható. Regressziós teszt az elérhetőségre, nem csak a követésre.
+- 0.19 — **a minták a mask geometriájából (D47)**: közép + csúcsok + élfelezők, 0.05-os
+  Oklab-szeparációval. A rács + Lloyd és a Colors csúszka kiesett, a D39 tárgytalan, a
+  D25 valóra vált. A semleges saját csoportot kap.

@@ -17,7 +17,7 @@
  * space", not "this bottle is this colour".
  */
 
-import { lrgbToOklab, srgbToLinear, type Oklab } from '../color/oklab.ts'
+import { lrgbToOklab, oklabDistance, srgbToLinear, type Oklab } from '../color/oklab.ts'
 import { PAINTS } from './catalogue.ts'
 import { BRANDS, type Brand, type Paint } from './types.ts'
 
@@ -43,6 +43,8 @@ export type PaintMatch = {
  */
 export const MATCH_TOLERANCE_PERCENT = 5
 
+export { oklabDistance }
+
 export function hexToOklab(hex: string): Oklab {
   const n = Number.parseInt(hex.slice(1), 16)
   return lrgbToOklab({
@@ -65,13 +67,6 @@ const BY_BRAND: ReadonlyMap<Brand, readonly { paint: Paint; lab: Oklab }[]> = ne
     })),
   ]),
 )
-
-export function oklabDistance(a: Oklab, b: Oklab): number {
-  const dL = a.L - b.L
-  const da = a.a - b.a
-  const db = a.b - b.b
-  return Math.sqrt(dL * dL + da * da + db * db)
-}
 
 /**
  * The closest paint within one brand, always — never null, so the caller can show the

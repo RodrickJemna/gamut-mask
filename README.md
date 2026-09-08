@@ -14,8 +14,8 @@ Reference: James Gurney, *Color and Light* — gamut masking.
 - Free polygon mask editor — drag, add and remove vertices
 - Presets: triad, split complementary, analogous wedge
 - Rotate and scale the mask about the wheel centre
-- Lists the colours inside the mask, grouped by wheel wedge, with hex, lightness and
-  saturation; click to copy
+- Lists the mask's own palette — its centre, corners and edge midpoints — grouped by
+  wheel wedge, with hex, lightness and saturation; click to copy
 - Matches each colour against two brands — AK Interactive (647 paints) and Vallejo
   (650) — listing whichever are within 5%, or saying so plainly when neither is
 - Drag inside the mask to move it; drag handles to reshape it
@@ -30,6 +30,21 @@ recorded, not gaps — see sections 5 and 7 of the spec before proposing any of 
 
 Paint matching was itself a settled *non*-goal (D11) until new requirements reopened it
 in 0.11; it is now D40.
+
+## Which colours get listed
+
+The palette is the mask's geometry: its **centre**, its **vertices**, and the **midpoint
+of each edge**. For a triad that is seven colours — three hues at the corners, three
+muted mixtures halfway along the edges, and the neutral in the middle — which is a
+limited palette as a painter would lay one out.
+
+Colours closer together than 5% in Oklab are dropped, which is the same tolerance used
+for paint matching: two colours nearer than that resolve to the same bottle, so listing
+both is noise. That matters for the arc-based presets, whose vertices exist to make a
+curve smooth rather than to mark anything.
+
+The count follows the shape rather than a slider — add a vertex and you get two more
+candidates.
 
 ## The wheel model
 

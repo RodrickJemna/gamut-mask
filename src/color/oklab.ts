@@ -109,6 +109,20 @@ function toByte(c: number): number {
   return Math.min(255, Math.max(0, Math.round(linearToSrgb(c) * 255)))
 }
 
+/**
+ * Euclidean distance in Oklab.
+ *
+ * Lives here rather than with paint matching because two callers now need it — matching
+ * and the sampler's separation test — and it is a property of the colour space, not of
+ * either use.
+ */
+export function oklabDistance(a: Oklab, b: Oklab): number {
+  const dL = a.L - b.L
+  const da = a.a - b.a
+  const db = a.b - b.b
+  return Math.sqrt(dL * dL + da * da + db * db)
+}
+
 /** Gamut-safe Oklab -> 8-bit sRGB. Reduces chroma first (D3), then clamps float dust. */
 export function oklabToSrgb8(c: Oklab): [number, number, number] {
   const { r, g, b } = oklabToLrgb(reduceChroma(c))

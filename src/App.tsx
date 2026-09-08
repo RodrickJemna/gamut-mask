@@ -40,12 +40,12 @@ export default function App() {
    */
   const [highlighted, setHighlighted] = useState<number | null>(null)
 
-  const { basePolygon, offset, rotation, size, sampleCount } = state
+  const { basePolygon, offset, rotation, size } = state
   const polygon = useMemo(
     () => displayPolygon({ basePolygon, offset, rotation, size }),
     [basePolygon, offset, rotation, size],
   )
-  const samples = useMemo(() => sampleMask(polygon, sampleCount), [polygon, sampleCount])
+  const samples = useMemo(() => sampleMask(polygon), [polygon])
 
   const sheetContent = useMemo(
     () => ({
@@ -54,9 +54,8 @@ export default function App() {
       preset: PRESETS.find((p) => p.id === state.preset)?.label ?? null,
       rotation,
       size,
-      requested: sampleCount,
     }),
-    [samples, polygon, state.preset, rotation, size, sampleCount],
+    [samples, polygon, state.preset, rotation, size],
   )
 
   /**
@@ -115,7 +114,6 @@ export default function App() {
       </div>
       <SampleList
         samples={samples}
-        requested={sampleCount}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />

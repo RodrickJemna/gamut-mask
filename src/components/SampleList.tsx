@@ -1,9 +1,11 @@
 /**
  * The colours inside the mask, grouped by wheel wedge. Spec: F6, D36, D25, D13, D16.
  *
+ * The colours are the mask's centre, vertices and edge midpoints (D47), so the count
+ * follows the shape of the mask rather than a slider.
+ *
  * Row content is fixed by D36: swatch, hex, lightness, saturation. Lightness is Oklab L
- * on 0-100, saturation is the radius as a percentage. Clicking a row copies the hex —
- * the clipboard is the only export in v1 (D13).
+ * on 0-100, saturation is the radius as a percentage. Clicking a row copies the hex.
  *
  * GROUPING. The samples arrive sorted by angle (D17), but one flat list reads badly for
  * palette work: you want to see the reds together and know at a glance which hue families
@@ -39,13 +41,12 @@ import { BRAND_TAG } from '../paints/types.ts'
 
 type Props = {
   samples: Sample[]
-  requested: number
   /** Index into `samples` currently highlighted on the wheel, or null (D46). */
   highlighted: number | null
   onHighlight: (index: number | null) => void
 }
 
-export function SampleList({ samples, requested, highlighted, onHighlight }: Props) {
+export function SampleList({ samples, highlighted, onHighlight }: Props) {
   const [copied, setCopied] = useState<string | null>(null)
 
   /**
@@ -54,15 +55,20 @@ export function SampleList({ samples, requested, highlighted, onHighlight }: Pro
    * holds, so nudging a slider mid-hover cannot leave the wheel marking a position that
    * no longer exists.
    */
-  const wedges = useMemo(() => {
+  const { neutrals, wedges } = useMemo(() => {
+    const neutral: { sample: Sample; index: number }[] = []
     const buckets: { sample: Sample; index: number }[][] = ANCHORS.map(() => [])
     samples.forEach((sample, index) => {
-      buckets[wedgeIndexOf(sample.theta)].push({ sample, index })
+      // A colour with no chroma has no hue, so filing it under a wedge would be a lie —
+      // the mask's centre was landing under RED purely because a neutral's angle is
+      // fixed at 0. It gets its own group instead.
+      if (sample.t === 0) neutral.push({ sample, index })
+      else buckets[wedgeIndexOf(sample.theta)].push({ sample, index })
     })
     for (const bucket of buckets) {
       bucket.sort((a, b) => wedgeOffsetOf(a.sample.theta) - wedgeOffsetOf(b.sample.theta))
     }
-    return buckets
+    return { neutrals: neutral, wedges: buckets }
   }, [samples])
 
   async function copy(hex: string) {
@@ -80,24 +86,29 @@ export function SampleList({ samples, requested, highlighted, onHighlight }: Pro
   return (
     <section className="samples">
       <div className="samples-head">
-        <h2>
-          Colors in mask ({samples.length}
-          {/* D25: report the real count rather than padding to the requested one. */}
-          {samples.length < requested ? ` of ${requested} — mask too small` : ''})
-        </h2>
+        <h2>Colors in mask ({samples.length})</h2>
       </div>
 
       {samples.length === 0 ? (
         <p className="empty">No colours — the mask encloses no area.</p>
       ) : (
         <div className="wedges">
-          {ANCHORS.map((anchor, i) => {
-            const bucket = wedges[i]
+          {[
+            ...(neutrals.length > 0
+              ? [{ letter: '\u00b7', name: 'Neutral', bucket: neutrals, key: 'neutral' }]
+              : []),
+            ...ANCHORS.map((anchor, i) => ({
+              letter: anchor.letter,
+              name: anchor.name,
+              bucket: wedges[i],
+              key: anchor.letter,
+            })),
+          ].map(({ letter, name, bucket, key }) => {
             return (
-              <section className="wedge" key={anchor.letter}>
+              <section className="wedge" key={key}>
                 <h3>
-                  <span className="wedge-letter">{anchor.letter}</span>
-                  {anchor.name}
+                  <span className="wedge-letter">{letter}</span>
+                  {name}
                   <span className="wedge-count">{bucket.length}</span>
                 </h3>
 

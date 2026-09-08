@@ -3,9 +3,7 @@ import { polar, radiusOf } from '../color/wheel.ts'
 import { centroid } from '../geom/polygon.ts'
 import { buildPreset } from '../mask/presets.ts'
 import {
-  MAX_SAMPLES,
   MAX_SIZE,
-  MIN_SAMPLES,
   MIN_SIZE,
   MIN_VERTICES,
   displayPolygon,
@@ -143,16 +141,9 @@ describe('slider clamps', () => {
     expect(reducer(initialState, { type: 'setSize', factor: -1 }).size).toBe(MIN_SIZE)
   })
 
-  it('clamps sample count to 4..32 and keeps it an integer', () => {
-    expect(reducer(initialState, { type: 'setSampleCount', n: 99 }).sampleCount).toBe(MAX_SAMPLES)
-    expect(reducer(initialState, { type: 'setSampleCount', n: 1 }).sampleCount).toBe(MIN_SAMPLES)
-    expect(reducer(initialState, { type: 'setSampleCount', n: 12.7 }).sampleCount).toBe(13)
-  })
-
   it('returns the same object when a slider does not actually change', () => {
     expect(reducer(initialState, { type: 'setRotation', deg: 0 })).toBe(initialState)
     expect(reducer(initialState, { type: 'setSize', factor: 1 })).toBe(initialState)
-    expect(reducer(initialState, { type: 'setSampleCount', n: 12 })).toBe(initialState)
   })
 })
 
