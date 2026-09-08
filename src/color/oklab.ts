@@ -59,8 +59,15 @@ export function oklabToLrgb({ L, a, b }: Oklab): Rgb {
   }
 }
 
-/** Tolerance absorbing float dust at the cube faces, well below one 8-bit step. */
-const GAMUT_EPS = 1e-9
+/**
+ * Tolerance at the cube faces. This must be LOOSER than the precision of the matrices
+ * themselves: the published constants carry 10 decimals, so a round trip drifts by up to
+ * ~2.6e-7, and a fully saturated rim colour lands as much as 1.3e-7 outside [0,1] purely
+ * from that drift. A tighter epsilon judges the rim out of gamut and chroma-reduces
+ * colours that are in fact exactly on the boundary. 1e-6 clears the drift with room to
+ * spare while still being 2.5e-4 of one 8-bit step, so nothing visible passes through.
+ */
+const GAMUT_EPS = 1e-6
 
 export function inGamut({ r, g, b }: Rgb): boolean {
   return (

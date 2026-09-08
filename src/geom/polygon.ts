@@ -6,7 +6,7 @@
  *
  * IMPLEMENT
  *
- *   type Point = { x: number; y: number }
+ *   import type { Point } from '../color/wheel.ts'   // already defined there
  *   type Polygon = Point[]            // open ring: last vertex implicitly joins the first
  *
  *   containsPoint(poly: Polygon, p: Point): boolean    // even-odd, D24

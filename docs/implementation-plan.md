@@ -22,12 +22,14 @@ src/
     oklab.ts                lin-sRGB <-> Oklab, gamma, chroma reduction   D3, D32
     oklab.test.ts
     wheel.ts                angle <-> hue, (angle,t) -> sRGB, anchors     D21, D34, D35
+                            also defines `Point` — it defines wheel space
     wheel.test.ts
     render.ts               disk -> ImageData, resize-keyed cache         F1, D30
     format.ts               hex + the two display numbers                 D36
 
   geom/
     polygon.ts              even-odd hit test, disk clamp, area/centroid  D22, D24
+                            imports the `Point` type from color/wheel.ts
     polygon.test.ts
     transform.ts            rotate / scale about the centre               F5, D22
     transform.test.ts
@@ -77,6 +79,9 @@ Consequences worth knowing before writing code:
 
 - Polygon vertices are stored in wheel space as floats, never in pixels. That is what makes
   the state resolution-independent, resize-proof, and JSON-serialisable (D18).
+- The `Point` type lives in `color/wheel.ts`, not in `geom/`, because that module defines
+  wheel space and every point in the app is a wheel-space point. The geometry here is
+  never generic 2D geometry, so a second home for the type would only invite drift.
 - The SVG overlay uses `viewBox="-1 -1 2 2"`, so **wheel space is SVG user space** — the
   overlay does zero coordinate conversion. Only `WheelCanvas` knows about pixels.
 - Because that viewBox is 2 units wide, a `stroke-width` of `1` would be half the disk.
