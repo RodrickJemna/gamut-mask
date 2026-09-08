@@ -49,13 +49,38 @@ Ottosson's original matrices. Vitest covers the colour maths and geometry only.
 The greys are functional, not decorative: the wheel is the only saturated thing on
 screen so that simultaneous contrast does not distort colour judgement.
 
-## Commands
+## Running it
+
+**The easy way — no terminal, no server.** Build a single self-contained HTML file once:
 
 ```
 npm install
-npm run dev      # Vite dev server
+npm run bundle
+```
+
+That writes `gamut-mask.html` (~205 KB) to the project root, with the script, stylesheet
+and favicon all inlined. Open it by double-clicking; bookmark it or keep it on the Dock
+and you never need a terminal again. It works with no network — there is nothing to
+fetch, and no server-side anything (D8).
+
+Rebuild it with `npm run bundle` after any code change.
+
+**For development**, the usual Vite loop:
+
+```
+npm run dev      # dev server with HMR, Ctrl+C to stop
+```
+
+Desktop layout only (mobile is a non-goal), so give the window ~1200px of width.
+
+## Commands
+
+```
+npm run dev      # Vite dev server with HMR
+npm run bundle   # build + inline into one double-clickable gamut-mask.html
 npm test         # vitest
-npm run build    # tsc -b && vite build
+npm run build    # tsc -b && vite build (multi-file, into dist/)
+npm run preview  # serve dist/ over localhost
 npm run lint     # eslint .
 ```
 
