@@ -175,6 +175,9 @@ All three questions that were open during the build are settled, in spec version
 
 ## 6. Known issues, not yet decided
 
+- **Very high colour counts scroll the list column.** Above roughly 20 the samples
+  column overflows and scrolls internally; the wheel and panel stay fixed. Making it fit
+  would mean either truncating paint names or dropping a D36 column, so it is left.
 - **Handle crowding at small mask sizes.** Handles are a fixed size in wheel space while
   the mask shrinks, so below roughly 40% size the vertices of an arc-based preset overlap.
   Scale up to edit. The spec has no notion of handle density.

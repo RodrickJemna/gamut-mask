@@ -72,12 +72,6 @@ export function SampleList({ samples, requested }: Props) {
           {/* D25: report the real count rather than padding to the requested one. */}
           {samples.length < requested ? ` of ${requested} — mask too small` : ''})
         </h2>
-        <span className="samples-note">
-          Assumes sRGB. On an uncalibrated monitor this plans relative harmony; it does not
-          predict absolute paint colour. Paint matches use the catalogue&apos;s printed
-          swatches, not measured paint — treat them as a starting point, not a colour
-          reading.
-        </span>
       </div>
 
       {samples.length === 0 ? (

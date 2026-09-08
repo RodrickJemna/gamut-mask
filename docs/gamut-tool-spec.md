@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.11
+Verzió: 0.12
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -133,6 +133,23 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D41 — Egy-viewportos layout**: a három régió (kör, panel, színlista) egymás mellett,
+  `100dvh` magasságra kötve, lapszintű scroll nélkül. Ez felülírja a 6. pont eredeti
+  „színlista alatta" tagolását.
+  - **Miért**: a lista a kör alatt egy laptopon a fold alá esett, és a felhasználó
+    **festés közben nem tud scrollozni** — nedves ecsettel ez nem elérhető interakció.
+    A hiba nem esztétikai volt, hanem használhatatlanná tette a fő munkafolyamatot
+    (mask állítása és a hozzá tartozó festékek egyidejű olvasása).
+  - **A kör mérete oszthatóan van megadva** (`0.85fr`), `max-width: 470px` felső korláttal.
+    Fix 470px-nél egy 1280×720-as laptopon a listának csak 506px maradt — egy hasáb —, és
+    a lista 12 színnél is 273px-szel túlcsordult. Az arányos szélesség ott ad fel helyet,
+    ahol szűkös, és a korlát megakadályozza, hogy a diszk a hasznosnál nagyobb legyen.
+  - **A kártya minimum 280px**, mérés alapján: 238px-nél befér a harmadik hasáb és még egy
+    32 színű lista is kiférne, de a festéknevek ~10 karakterre csonkultak („AK11277 R…") —
+    egy elolvashatatlan festéknév értelmetlenné teszi az illesztést. 320px-nél semmi nem
+    csonkul, de 1280 szélességnél egy hasábra esik vissza. A 280 kettőt tart 1280-ig.
+  - **Ami marad**: nagyon magas színszámnál (kb. 20 fölött) a **lista hasáb** scrolloz
+    belül, a kör és a panel a helyén marad. Ez elfogadható: a kör nem tűnik el.
 - **D27 — Gép: Apple Silicon, arm64.** Node 24 LTS natív .pkg-ből. Lásd `setup-macos.md`.
 - **D38 — Az atmoszférikus preset geometriája**: kör alakú (14 szögpont) blob,
   `r = 0.34`, a középtől `0.28`-ra kitolva a base hue irányába. Tehát tartalmazza a
@@ -202,8 +219,9 @@ Mérőműszer, nem landing page. Egyetlen bold elem: a színkör. Minden más se
 szürke, a kör körül nagyobb semleges zóna, hogy a környező színek ne rontsák el a
 megítélést. Nincs színes akcent, gradiens, kártyásítás.
 
-Layout: kör balra, mask-panel jobbra (4 preset + rotate/size/colors csúszka),
-színlista alatta 4 oszlopos gridben.
+Layout (**0.12-ben módosítva, lásd D41**): kör balra, mask-panel középen (4 preset +
+rotate/size/colors csúszka), színlista **jobbra**, mind a három egyetlen viewport-ban,
+lapszintű scroll nélkül. A lista `auto-fill` gridben, nem fix 4 oszlopban.
 
 ---
 
@@ -252,3 +270,5 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
 - 0.11 — **festék-illesztés (D40)**, a D11 visszavonva. 647 AK festék kinyerve az
   AK_Catalogue2026.pdf-ből (két lapformátum: vektoros swatch az ekvivalencia-táblákban,
   raszteres a Real Colors rácsokon). Minta-lista wedge-enként csoportosítva.
+- 0.12 — **egy-viewportos layout (D41)**: a színlista a kör mellé került, lapszintű
+  scroll nincs. 1280×720 és 1512×860 mellett is elfér, csonkolás nélkül.

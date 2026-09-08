@@ -39,8 +39,20 @@ export default function App() {
           dispatch={dispatch}
         />
       </div>
-      <MaskPanel state={state} dispatch={dispatch} />
-      <SampleList samples={samples} requested={state.sampleCount} />
+      <div className="side">
+        <MaskPanel state={state} dispatch={dispatch} />
+        {/*
+          D10 requires the sRGB assumption to be stated in the UI. It lives here rather
+          than above the colour list so it stays visible without competing for the room
+          the list needs.
+        */}
+        <p className="caveat">
+          Assumes sRGB. On an uncalibrated monitor this plans relative harmony; it does
+          not predict absolute paint colour. Paint matches use the catalogue&apos;s
+          printed swatches, not measured paint — a starting point, not a colour reading.
+        </p>
+      </div>
+      <SampleList samples={samples} requested={sampleCount} />
     </main>
   )
 }

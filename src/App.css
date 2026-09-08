@@ -1,38 +1,45 @@
-/*
- * Layout only. Spec: section 6, F7. Colours come from index.css; no greys are
- * hard-coded here.
- *
- * Desktop only — mobile layout is a non-goal (section 7), so there are no media queries.
- */
-
 .app {
   /*
-   * Dragging a vertex otherwise selects the anchor letters and the panel labels, which
-   * flashes highlight boxes across the wheel mid-gesture.
+   * Everything on one screen, no page scroll. The wheel used to sit above the colour
+   * list, which pushed the list below the fold on a laptop — and scrolling is not
+   * available to someone holding a loaded brush. So the three regions sit side by side
+   * and the app is bounded to the viewport instead of growing past it.
+   *
+   * The wheel takes a SHARE of the width (and is capped at 470px by `.wheel`) rather than
+   * a fixed 470px. Fixed, a 1280x720 laptop left the list only 506px — one column — and
+   * the list then overflowed by 273px even at the default twelve colours. Sharing lets
+   * the wheel give up width where width is scarce, which is exactly where the list needs
+   * it, and the cap stops the wheel growing past the point where a bigger disk helps.
    */
   user-select: none;
   display: grid;
-  grid-template-columns: minmax(340px, 1fr) 260px;
-  grid-template-areas:
-    "wheel panel"
-    "samples samples";
-  gap: var(--gap);
-  align-items: start;
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: var(--gap);
+  grid-template-columns: minmax(220px, 0.85fr) 224px minmax(320px, 1.4fr);
+  grid-template-areas: "wheel side samples";
+  gap: 20px;
+  height: 100dvh;
+  padding: 20px;
+  overflow: hidden;
 }
 
 /*
- * The square that holds the disk and its overlay. The generous neutral margin around the
- * wheel is a functional requirement, not whitespace taste (section 6, F7): surrounding
- * colour shifts the perceived hue of the disk.
+ * The square that holds the disk and its overlay. Bounded on BOTH axes so it fits the
+ * viewport height as well as its column, and centred in whatever room is left. The
+ * generous neutral margin around the wheel is functional, not whitespace taste
+ * (section 6, F7): surrounding colour shifts the perceived hue of the disk.
  */
 .wheel {
   grid-area: wheel;
   position: relative;
   aspect-ratio: 1;
   width: 100%;
+  /* min-height: 0 lets a grid item shrink below its content; without it the square
+     overflows the row instead of fitting it. */
+  min-height: 0;
+  max-height: 100%;
+  /* Past this a bigger disk buys nothing for dragging vertices. */
+  max-width: 470px;
+  justify-self: center;
+  align-self: center;
 }
 
 /*
@@ -59,8 +66,17 @@
   touch-action: none;
 }
 
+/* Controls column: the panel, with the sRGB caveat parked at the bottom of it (D10). */
+.side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .panel {
-  grid-area: panel;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -135,6 +151,9 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* Only this column scrolls, and only when a mask spans every wedge at a high count. */
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .samples-head {
@@ -142,6 +161,12 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
+  /* Stays put while the list below it scrolls. */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-bottom: 4px;
+  background: var(--bg);
 }
 
 .samples-note {
@@ -151,7 +176,9 @@
 .wedges {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  /* Tight: six section gaps are worth ~30px of list height, which at 1280x720 is the
+     difference between the default twelve colours fitting and not. */
+  gap: 10px;
 }
 
 /*
@@ -163,7 +190,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -199,24 +226,37 @@
 }
 
 /*
- * Three columns rather than the four in spec section 6. Each row now carries a paint
- * name as well (D40), and at four columns most names ellipsised away to nothing.
+ * Auto-fitting rather than the fixed four of spec section 6. Each row now carries a
+ * paint name (D40), and the list shares the width with the wheel, so a fixed count
+ * either ellipsised every name away or wasted the column.
+ *
+ * 280px is a compromise found by measuring. At 238px a third column fits and even a
+ * 32-colour list stays on screen, but paint names truncated to about ten characters
+ * ("AK11277 R…") — and a name you cannot read defeats the point of matching one. At
+ * 320px nothing truncates but a 1280-wide laptop drops to a single column and the list
+ * overflows. 280px keeps two columns down to 1280 and leaves most names intact.
  */
 .samples-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 6px;
 }
 
 .sample {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) auto;
+  /*
+   * The paint name spans the swatch and hex columns, because it is the longest string in
+   * the card and the only one worth reading in full.
+   */
   grid-template-areas:
     "swatch hex   nums"
-    "swatch paint delta";
-  gap: 2px 10px;
+    "paint  paint delta";
+  gap: 0 8px;
   align-items: center;
-  padding: 6px;
+  /* Tight on purpose: card height is what decides whether the whole list fits on screen. */
+  padding: 5px 6px;
+  line-height: 1.35;
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -231,8 +271,8 @@
 /* Generous neutral padding around each swatch, for the same reason as the wheel margin. */
 .sample-swatch {
   grid-area: swatch;
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   border: 1px solid var(--border);
   border-radius: 2px;
 }
@@ -295,4 +335,12 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+}
+
+/* D10, required to be visible in the UI. Small, permanent, out of the way. */
+.caveat {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.4;
 }
