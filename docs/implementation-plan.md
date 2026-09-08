@@ -193,9 +193,15 @@ All three questions that were open during the build are settled, in spec version
 - **Very high colour counts scroll the list column.** Above roughly 20 the samples
   column overflows and scrolls internally; the wheel and panel stay fixed. Making it fit
   would mean either truncating paint names or dropping a D36 column, so it is left.
-- **Handle crowding at small mask sizes.** Handles are a fixed size in wheel space while
-  the mask shrinks, so below roughly 40% size the vertices of an arc-based preset overlap.
-  Scale up to edit. The spec has no notion of handle density.
+- **Handle crowding below roughly half size** (was worse; see D49). Handle sizes now come
+  from the closest adjacent vertex pair, targeting `gap / 2` — where equal circles stop
+  overlapping — so the arc presets are no longer crowded at full size, which they were:
+  they space vertices `ARC_CHORD` = 0.09 apart against a 0.055 hit radius, and which
+  handle you grabbed depended on SVG paint order. What remains is the floor. The scale
+  bottoms out at `MIN_INTERACTION_SCALE` = 0.3, which the analogous preset reaches at
+  about 55% size, because below that a handle stops being pointable at all — measured at
+  the 470px cap on `.wheel`, 0.3 leaves a 1.6px dot in a 3.3px target. Below the floor the
+  handles overlap again and the answer is still to scale the mask up to edit it.
 - **Export lands in the browser's download folder**, not beside the HTML. No page can
   create a folder next to itself; see D43.
 - **The colour list is much shorter since D47** — seven colours for a triad, eight to
@@ -221,3 +227,14 @@ Section 7 of the spec lists saving and loading state as the only future candidat
 already satisfied — the state is JSON-serialisable in shape and has a test asserting it
 survives a round trip — so this is additive and needs no refactor. `dragging` is the one
 field to exclude.
+
+D49's undo stack is NOT a step toward it: `HistoryState` is JSON-serialisable too and has
+a test saying so, but it lives in memory and a reload clears it. A saved file would carry
+`present` alone; there is no reason to persist the past.
+
+Two things a persistence layer should copy from D49 rather than reinvent. The `snap` flag
+is component state on purpose — an input mode, not a property of the mask — so a saved
+file would not carry it, and that is a decision rather than an omission. And the D49 work
+shows what the state's shape costs: `continuous` had to be added to two actions purely so
+the history could tell a slider sweep from a deliberate value, which is the kind of thing
+an action log would have to record and a state snapshot does not.

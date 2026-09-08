@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.23
+Verzió: 0.24
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -149,6 +149,62 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D49 — Szerkesztési kényelem: visszavonás, kézi értékbevitel, szög-rasztolás, és
+  festék-eltérés egy szóban.** Négy kis tétel, egy döntésbe fogva, mert mind ugyanazt a
+  problémát célozza: a mask szerkeszthető, de a szerkesztés nem visszakövethető és nem
+  reprodukálható.
+  - **Visszavonás/újra (`state/history.ts`)**: a meglévő reducert körbefogó reducer, azt
+    nem módosítja. Ötven lépés mélyen, `cmd-Z` / `cmd-shift-Z` / `ctrl-Y`, plusz két
+    gomb a MASK fejlécsorában — a gyorsbillentyűt semmi más nem hirdeti.
+    - **A nehéz kérdés az, hogy mi egy lépés.** Egy csúcs-húzás képkockánként küld
+      `moveVertex`-et, egy csúszka pixelenként `setRotation`-t, tehát minden akció
+      rögzítése azt jelentené, hogy a „visszavonás" egy gesztus egyetlen képkockáját
+      tekeri vissza. Az akciók ezért három osztályba esnek: **diszkrét** (mindig új
+      lépés), **összevonható** (egy futam egy kulccsal egy lépés) és **átmeneti**
+      (`beginDrag`/`endDrag`, soha nem lépés — csak a `dragging`-et mozgatják).
+    - Az összevonási kulcs **tartalmazza a csúcs indexét**, és az `endDrag` **törli** a
+      kulcsot: e nélkül ugyanannak a csúcsnak két külön húzása egyetlen lépésbe folyt
+      volna össze.
+    - **Csak a csúszka-képkocka vonható össze.** A kulcs önmagában az akció típusából
+      kevés volt: a beírt érték és a raszter-pipa is `setRotation`-t küld, tehát a 137
+      fok beírása és a Snap bekapcsolása **egy** lépésbe olvadt, és egy visszavonás 120-ról
+      a 137-et átlépve 0-ra ugrott. A csúszka `continuous`-t küld, és csak az olvad.
+    - **Visszaálláskor a `dragging` törlődik**: egy gesztus közben rögzített lépés
+      különben úgy jönne vissza, hogy egy csúcsot fogva tart.
+  - **Kézi értékbevitel**: a rotáció és a méret számmezőt kap a csúszka mellé.
+    - **Miért**: csúszkával nem lehet pontos értéket eltalálni, tehát egy sémát nem lehet
+      felírni és visszaállítani. A „triád 120 fokon, 80%" így elég a reprodukcióhoz.
+    - **Commit blur-re vagy Enterre**, nem leütésenként: a mező üres, amíg újraírják, és
+      azt commitolni vagy elutasítást vagy egy default-ra ugrást jelentene.
+    - **A mező nem vág le semmit.** A reducer már normalizálja a rotációt 360 szerint és
+      vágja a méretet, tehát 400 fok beírása után 40 marad a mezőben — ott van a mask.
+  - **Szög-rasztolás**: pipa a SHAPE fejlécsorában, a hat anchor-szögre (`WEDGE_SPAN`
+    többszöröseire).
+    - **A kibocsátott értéken raszterol, nem az input `step`-jén.** A `step` elszakítja a
+      kontrollt az állapottól: 60-as step mellett a mezőbe írt 40 fok a 60-as jelölőnél
+      rajzolja a csúszkát, mert a 40 az input szerint érvénytelen.
+    - **Nem mágneses tolerancia** sem: az az anchorok melletti szögeket elérhetetlenné
+      tenné. Húzva hat állás van; a pontos közti értékek a számmezőé.
+    - **Bekapcsoláskor a jelenlegi szöget is raszterolja**, különben a csúszka és az
+      állapot addig nem egyezik, amíg hozzá nem nyúlnak.
+    - **Nem az állapotban él**, hanem komponens-állapotban: beviteli mód, nem a mask
+      tulajdonsága, és a reducerben a `cmd-Z` egy jelölőnégyzetet kapcsolna vissza a
+      forma helyett.
+  - **Festék-eltérés egy szóban** (`driftLabel`): minden találat mellé egy szó arról,
+    merre téved a tégely — `darker`, `lighter`, `greyer`, `stronger`, vagy semmi.
+    - **Nem csak világosság**, pedig úgy kérték. 2401 körszínen és a 3110 toleranciába eső
+      találatukon mérve a |dL| csak a találatok **46%-ában** a nagyobb a két eltérés
+      közül: a chroma ugyanannyit mozog, tehát a világosság-only jelzés az esetek nagyobb
+      felén hallgatna — és úgy hallgatna, hogy az „ez rendben van"-nak olvasódik. Ezért a
+      **dominánsabb tengely** megy ki.
+    - **A 0.02-es küszöb mért, nem választott**: a |dL| mediánja 0.011, maximuma 0.054,
+      tehát 0.005-nél a jelzés a sorok 77%-án megjelenik és nem jelent semmit, 0.04-nél
+      1%-án. 0.02-nél 47%-on szólal meg — világosság 19.5%, chroma 27.2%.
+    - **Mindig csak egy szó**: a lista sávja már a színkörrel osztozik a szélességen. A
+      tooltip mondja ki, mihez képest.
+    - **Ez nem value-tengely (D16)**: két ismert színt hasonlít egymáshoz — egy konkrét
+      tégely katalógus-swatchét a képernyőn látható színhez —, nem ad kontrollt és nem
+      rendez semmit.
 - **D48 — Gyártó-szűrő**: jelölőnégyzet gyártónként, hogy melyik katalógusra illesztünk.
   - **Miért**: több katalógussal a sorok száma mintánként nő, és a felhasználónak
     általában nem mind a hat gyártó tégelye kell. A szűrő a válasz a „túl sok találat"
@@ -421,7 +477,8 @@ lapszintű scroll nélkül. A lista `auto-fill` gridben, nem fix 4 oszlopban.
 - Munsell renotation, CMYK, nyomdai színkezelés
 - 3D gamut-test néző, több projekt kezelése
 
-Későbbi jelölt: állapot mentése/betöltése.
+Későbbi jelölt: állapot mentése/betöltése. (A D49 visszavonás-verme ehhez nem
+persistencia: memóriában él, a lapújratöltés törli.)
 
 ---
 
@@ -484,3 +541,7 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   aszimmetrikus volt.
 - 0.23 — **gyártó-szűrő (D48)**: jelölőnégyzet gyártónként, `BRANDS`-ből generálva. Az üres
   szűrő „nincs illesztés"-t jelent, nem „nem találtunk"-ot.
+- 0.24 — **szerkesztési kényelem (D49)**: visszavonás/újra gesztus-granularitással, kézi
+  értékbevitel a rotációhoz és a mérethez, szög-rasztolás a hat anchorra, és egy szó a
+  festék-eltérésről a dominánsabb tengely szerint. Plusz a fogantyúk mérete a legközelebbi
+  szomszédos csúcspárból származik — az ív-presetek fogantyúi 100%-on is átfedtek.
