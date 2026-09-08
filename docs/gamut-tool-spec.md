@@ -1,0 +1,187 @@
+# Gamut Mask Tool — spec
+
+Verzió: 0.9 (build-ready)
+Státusz: FÁZIS 1 — DESIGN lezárva. Kód még nincs.
+
+---
+
+## 1. Cél
+
+Miniatűr-festéshez való gamut mask szerkesztő. Mask felvétele egy YURMBY-színkörön, és
+a maskon belüli színek felsorolása. Képernyőn használatos, session-alapú eszköz.
+
+Nem képszerkesztő, nem festék-illesztő, nem keverés-szimulátor, nem value-tervező.
+
+Referencia: James Gurney, *Color and Light* — gamut masking, YURMBY-kör.
+
+---
+
+## 2. A kör modellje
+
+- **Szög** = YURMBY hue. Piros fent, onnan óramutató járása szerint. A hat anchor
+  (R, Y, G, C, B, M) pontosan 60°-onként, mert a szög közvetlenül az sRGB hue-hexagon
+  szöge. Komplementerek szemben: R↔C, Y↔B, G↔M.
+- **Perem** = az adott hue teljesen telített sRGB színe. Ez definíció szerint a
+  maximális chroma az adott hue-n, tehát nem kell hozzá gamut-keresés.
+- **Közép** = semleges szürke, Oklab `L = 0.6`.
+- **Rádiusz** `t ∈ [0,1]` = a közép és a perem közti interpoláció, **Oklabban**
+  számolva. Hue-nként normalizált: `t = 0.7` azt jelenti, hogy „az adott hue teljes
+  telítettségének 70%-a felé", nem egy absztolút chroma-értéket.
+- A diszk kerek, nincs elérhetetlen terület.
+- **Mask** = zárt polygon a körön.
+- **Sample** = a maskon belüli egy szín, ami megjelenik az alsó listában.
+
+---
+
+## 3. v1 scope (must-have)
+
+| # | Feature | Megjegyzés |
+|---|---|---|
+| F1 | A kör per-pixel renderelése canvasra | egy ImageData cache, csak resize-nál újraszámol |
+| F2 | Szabad polygon szerkesztő: vertex add / del / drag, min. 3 pont | SVG overlay |
+| F3 | Hat anchor-sugár + R Y G C B M betűk | állandó, nem elrejthető |
+| F4 | Mask presetek: triád, split-komplementer, analóg ék, atmoszférikus | paraméteres |
+| F5 | Mask rotálása a közép körül + skálázása | Gurney-workflow |
+| F6 | A maskon belüli színek listája: swatch + hex + világosság + telítettség | auto rács, N csúszka |
+| F7 | Semleges (mid-grey) UI chrome | szimultán kontraszt miatt követelmény |
+
+### „Done" v1-re
+A felhasználó felvesz egy maskot (presetből vagy szabadon), állítja a méretét és
+szögét, és látja alatta a maskon belüli színeket. Semmi több.
+
+---
+
+## 4. Érvényes döntések
+
+- **D35 — A kör modellje** a 2. pont szerint: YURMBY-szög, teljesen telített sRGB
+  perem, Oklab `L = 0.6` semleges közép, hue-nként normalizált rádiusz, Oklabban
+  interpolált átmenet.
+  - **Miért Oklab az interpoláció**: sRGB-ben lineárisan szürkébe húzni látható sarat
+    csinál a köztes gyűrűkben, pont ott, ahol a tompított paletták vannak. ~30 sor,
+    se tábla, se keresés, a felhasználó nem is látja. Ez az egyetlen hely, ahol
+    perceptuális színtér szerepel a rendszerben.
+  - **Az ára, kimondva**: két különböző hue ugyanolyan radiális pozíciója nem
+    összemérhetően telített. Hue-n belül a „kifelé telítettebb" továbbra is igaz.
+- **D3 — Gamut**: konstrukció szerint minden pont sRGB-ben van. Az Oklab-interpoláció
+  numerikusan kilóghat; ilyenkor chroma-redukció (`a`, `b` skálázása) az adott `L`-en,
+  amíg befér. Nincs csendes csatorna-clip.
+- **D32 — Oklab konverziós mátrixok**: Ottosson eredetije
+  (bottosson.github.io/posts/oklab), lineáris sRGB ↔ Oklab irányban, keresésen
+  ellenőrizve. XYZ-n nem megyünk át.
+- **D37 — Nincs színkönyvtár-függőség.** A `culori` kiesett: 30 sor ellenőrzött matek
+  nem ér meg egy dependencyt. Runtime dep a Reacten kívül nulla.
+- **D30 — Per-pixel renderelés**, nem szegmens-legyező. Sima átmenet.
+- **D4 — Canvas a körnek, SVG overlay a mask-handle-eknek.** Hit-testing SVG-ben
+  triviális; WebGL felesleges (~125k pixel, egy cache-elt ImageData).
+- **D21 — Orientáció**: piros fent, óramutató szerint. Y 2 óránál, G 4-nél, C 6-nál,
+  B 8-nál, M 10-nél.
+- **D34 — A hat anchor állandóan kirajzolva**: sugár a középtől a peremig + betű a
+  körön kívül.
+- **D22 — Vertex-clamp**: a polygon vertexei nem mehetnek a diszk peremén túl, a
+  határra ragadnak. Rotálásnál is.
+- **D23 — Presetek rádiusz-arányban definiálva.** Preset betöltése felülírja az
+  aktuális polygont, megerősítés nélkül.
+- **D24 — Nem-konvex polygon engedve**, even-odd szabállyal. Önátmetszés nincs tiltva.
+- **D17 — Determinisztikus mintavételezés**: fix rács a maskon belül, rácsméret
+  binárisan keresve N-hez, majd 2–3 Lloyd-iteráció. Random mintavétel a mask minden
+  mozgatásánál újravillogó listát adna. N default 12, range 4–32. Rendezés szög szerint.
+- **D25 — Túl kicsi mask**: ha N minta nem fér el, kevesebb jön, és a UI a tényleges
+  számot írja ki.
+- **D28 — A maskon kívüli terület tompítva**, nem kivágva: fekete wash a körön belül,
+  a polygonon kívül (even-odd fill-rule egy path-on). Megmarad a viszonyítás.
+- **D36 — A lista soronként**: swatch, hex, világosság (Oklab `L`, 0–100), telítettség
+  (`t`, 0–100%). Kattintásra hex a vágólapra. Ha a két szám feleslegesnek bizonyul,
+  könnyen kivehető.
+- **D16 — Nincs value/L tengely és nincs L slider.** Következmény: minden mintának van
+  egy származtatott világossága, amit nem a felhasználó választ. A lista kiírja, de ez
+  következmény, nem terv. A value-tervezés a felhasználónál marad.
+- **D10 — A pipeline sRGB-t feltételez.** Kalibrálatlan monitor → relatív harmóniát
+  tervez, nem absztolút festékszínt jósol. A UI-ban kiírva.
+- **D11 — Nincs festék-adatbázis és festék-illesztés, sem később.**
+- **D12 — Nincs kép-input, sem később.**
+- **D13 — Nincs export v1-ben.** Kattintásra hex a vágólapra, ennyi.
+- **D18 — Az állapot JSON-serializálható alakú**, hogy a későbbi mentés ne igényeljen
+  refaktort. Perzisztencia-kód viszont nincs benne.
+- **D8 — Nincs backend, account, router.** Statikus, offline app.
+- **D14 — Nincs zustand.** `useReducer` elég.
+- **D26 — A UI nyelve angol.** Nincs i18n réteg.
+- **D27 — Gép: Apple Silicon, arm64.** Node 24 LTS natív .pkg-ből. Lásd `setup-macos.md`.
+
+---
+
+## 5. Visszavont döntések (ne kerüljenek vissza)
+
+| # | Mi volt | Miért esett ki |
+|---|---|---|
+| D1 | „Minden számítás OkLCh-ban" | A scope zsugorodása után túlkomplikálta a kört. Csak az interpoláció maradt Oklabban (D35). |
+| D2 | L-független mask prizma | Tárgytalan, mert nincs L tengely (D16). |
+| D15 | `L` = az in-gamut L-intervallum közepe | Gamut-keresést igényelt; a perem így is a telített sRGB szín, keresés nélkül. |
+| D19 | Futásidejű cusp-tábla hue-nként | Ugyanaz: nem kell, a perem közvetlenül adódik. |
+| D20 | Rádiusz = absztolút chroma, kerek diszk + elérhetetlen sáv | A YURMBY-szögosztás után nem következetesség, csak gépezet. Rádiusz most hue-nként normalizált. |
+| D29 | Szabálytalan cusp-kontúr kirajzolása | Nincs szabálytalan perem, a diszk kerek. |
+| D31 | Kétféle „nem elérhető" jelölés | Csak egy van: maskon kívül (D28). |
+| D33 | OkLCh anchor hue-k közti monoton interpoláció | Összeomlik identitásra: a YURMBY-szög maga az sRGB hue. |
+| — | Festék-illesztés, kép-input, export, value-ramp | Felhasználói scope-döntések, lásd D11–D13, D16. |
+
+---
+
+## 6. Stack
+
+- **Vite + TypeScript** — egy dep-fa, `npm run dev`, nulla konfig.
+- **React** — a felhasználó gyenge pontja a frontend; ehhez van a legtöbb
+  magyarázható modell. Elvetett: vanilla TS canvas.
+- **Nulla runtime dep** a Reacten kívül. Az Oklab konverzió saját, ~30 sor (D32, D37).
+- **plain CSS + custom properties** — a szürkék pontos értéke funkcionális.
+- **ESLint** — a Vite scaffold hozza, dev-only. Nem volt tervezett tétel, de nem árt.
+- **vitest** — a színmatekra: Oklab round-trip, chroma-redukció helyessége,
+  point-in-polygon, mintavételezés determinizmusa. UI-teszt nincs.
+
+Nincs: culori, zustand, Tailwind, router, Next, komponens-könyvtár, CI, backend.
+
+### UI irány
+Mérőműszer, nem landing page. Egyetlen bold elem: a színkör. Minden más semleges
+szürke, a kör körül nagyobb semleges zóna, hogy a környező színek ne rontsák el a
+megítélést. Nincs színes akcent, gradiens, kártyásítás.
+
+Layout: kör balra, mask-panel jobbra (4 preset + rotate/size/colors csúszka),
+színlista alatta 4 oszlopos gridben.
+
+---
+
+## 7. Nem cél
+
+- Value/L tengely, value-létra, ramp
+- Festék-adatbázis, festék-illesztés, keverés-szimuláció
+- Kép-input bármilyen formában
+- Export (PNG / text / JSON), nyomtatás
+- Fiókok, cloud sync, megosztható link
+- Mobil layout
+- Munsell renotation, CMYK, nyomdai színkezelés
+- 3D gamut-test néző, több projekt kezelése
+
+Későbbi jelölt: állapot mentése/betöltése.
+
+---
+
+## 8. Setup
+
+Apple Silicon, arm64. Node 24 LTS natív .pkg-ből, Homebrew és Xcode CLT nélkül.
+Ellenőrzőparancsokkal tűzdelt lépéssor: **`setup-macos.md`**. Git később, külön
+lépésben: `.gitignore` először, aztán kis logikus commitok.
+
+---
+
+## 9. Changelog
+
+- 0.1 — első vázlat: v1 scope, D1–D10, stack.
+- 0.2 — scope-vágás: festék-illesztés, kép-input, export kiesik (D11–D13).
+- 0.3 — value tengely kiesik (D16); a kör max-chroma cusp-felület lett.
+- 0.4 — absztolút chroma rádiusz, piros-fent/CW, szabad polygon v1-ben (D20–D25).
+- 0.5 — angol UI (D26), arm64 + Node 24 LTS (D27).
+- 0.6 — mockup nyomán: mask-on-kívül tompítás (D28), cusp-kontúr (D29).
+- 0.7 — kerek diszk elérhetetlen sávval, in-gamut L-intervallum szabály (D15, D30–D32).
+- 0.8 — YURMBY szögleképezés, hat anchor kirajzolva (D33, D34).
+- 0.9 — **egyszerűsítés**: a cusp-keresés, az elérhetetlen sáv és az L-intervallum
+  szabály kiesett (D15, D19, D20, D29, D31, D33 visszavonva). A kör modellje most
+  D35: YURMBY-szög, telített sRGB perem, normalizált rádiusz, Oklab-interpolált
+  átmenet. `culori` elhagyva, nulla runtime dep (D37). Lista-tartalom rögzítve (D36).
