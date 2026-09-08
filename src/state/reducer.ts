@@ -6,7 +6,7 @@
  */
 
 import { angleOf, polar, radiusOf, type Point } from '../color/wheel.ts'
-import { clampPolygon, clampToDisk } from '../geom/polygon.ts'
+import { centroid, clampPolygon, clampToDisk } from '../geom/polygon.ts'
 import { rotate, scale, translate } from '../geom/transform.ts'
 import { buildPreset, type PresetId } from '../mask/presets.ts'
 import type { Action, AppState } from './types.ts'
@@ -175,16 +175,26 @@ export function reducer(state: AppState, action: Action): AppState {
     }
 
     /**
-     * D42: dragging the mask body. The offset itself is clamped to the disk, so a mask
-     * flung far off cannot collapse into a degenerate sliver on the rim — it stops at the
-     * edge and drags back.
+     * D42: dragging the mask body.
+     *
+     * What is clamped is WHERE THE MASK ENDS UP, not the offset itself. The displayed
+     * centre is `size * baseCentroid + offset`, so clamping the offset alone made the
+     * reachable positions a unit disk centred on `size * baseCentroid` — which is
+     * off-centre for any shape whose own centre is, i.e. any reshaped mask. Measured on
+     * a hand-mirrored triangle: the centre could be pushed to 0.82 rightwards but only
+     * 0.60 leftwards. Clamping the placed centre instead makes every direction reach the
+     * rim, and still stops the mask being flung off the wheel.
      */
     case 'dragMask': {
       const delta = toOffsetVector(action.deltaDisplay, state)
-      const next = clampToDisk({
+      const wanted = {
         x: action.offsetAtStart.x + delta.x,
         y: action.offsetAtStart.y + delta.y,
-      })
+      }
+      const base = centroid(state.basePolygon)
+      const anchor = { x: base.x * state.size, y: base.y * state.size }
+      const placed = clampToDisk({ x: anchor.x + wanted.x, y: anchor.y + wanted.y })
+      const next = { x: placed.x - anchor.x, y: placed.y - anchor.y }
       if (samePoint(next, state.offset)) return state
       return { ...state, offset: next }
     }

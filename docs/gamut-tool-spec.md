@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.21
+Verzió: 0.22
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -294,8 +294,18 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
     tárolt polygon szenvedné el, a visszahúzás nem állítaná helyre az alakot. Mérve:
     böngészőben a maskot a peremig húzva egy vertex tényleg beragad, visszahúzva viszont
     az alak **pontosan** visszaáll (max. eltérés 0).
-  - **Az `offset` a diszkre van clampelve**, tehát a mask nem hajítható el a körről —
-    a peremen megáll és visszahúzható.
+  - **Nem az `offset`-et clampeljük, hanem azt, hogy hová kerül a mask.** A kirajzolt
+    közép `size * baseCentroid + offset`; ha csak az offset van a diszkre clampelve, az
+    elérhető pozíciók egy `size * baseCentroid` körüli egységdiszket adnak — ami minden
+    olyan masknál el van csúszva, aminek a *saját* közepe nincs az origóban, azaz minden
+    átformázott masknál.
+  - **Javított hiba (0.22)**: egy kézzel „átfordított" háromszögnél a mask közepe jobbra
+    0.82-ig, balra viszont csak 0.60-ig volt tolható; fölfelé 0.57, lefelé 0.79. A
+    kirajzolt közepet clampelve minden irány a peremig ér (mérve: 0.74 / 0.75 / 0.73 /
+    0.70 — a maradék szórás abból van, hogy egy nagy mask vertexei a peremre ragadnak és
+    visszahúzzák a rajzolt súlypontot, ami elkerülhetetlen).
+  - **A mask továbbra sem hajítható el a körről**: a kirajzolt közép a diszken belül
+    marad, a vertexek pedig a peremen ragadnak (D22).
   - **Amit felad**: egy elcsúsztatott masknál a vertex „rádiusz = telítettség, szög =
     hue" olvasata már nem a mask saját középpontjához képest értendő. Ez szándékos: a
     felhasználó szemre pozicionál.
@@ -451,3 +461,6 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
 - 0.21 — **hibajavítás (D22)**: a clamp a kirajzolt vertexre vonatkozik, nem a tároltra, és
   egyszer fut a pipeline végén; a transzformációs primitívek tiszták. Egy vertex innentől
   bárhová húzható a körlapon, méretezett és elmozgatott maszkkal is.
+- 0.22 — **hibajavítás (D42)**: a mask-húzás azt clampeli, hová kerül a mask, nem az
+  `offset`-et. Átformázott (nem közép-szimmetrikus) masknál a mozgatás irányonként
+  aszimmetrikus volt.

@@ -407,6 +407,56 @@ describe('mask body drag (D42)', () => {
     expect(Math.hypot(spun.x - at0.x, spun.y - at0.y)).toBeGreaterThan(0.3)
   })
 
+  /**
+   * Regression, and the second time this suite has missed the same class of bug: the
+   * reach tests above all use `small`, a CENTRED triad, so a bias tied to the shape's own
+   * centre could not show up. Any reshaping moves that centre.
+   *
+   * The offset used to be clamped in its own frame, but the displayed centre is
+   * `size * baseCentroid + offset` — so the reachable positions formed a unit disk
+   * centred on `size * baseCentroid`, off-centre for any reshaped mask. Measured on a
+   * hand-mirrored triangle: 0.82 rightwards against 0.60 leftwards.
+   */
+  it('reaches equally far in every direction for a mask whose own centre is off-centre', () => {
+    let st = withState({})
+    st = reducer(st, { type: 'moveVertex', index: 0, to: { x: 0.38, y: -0.53 } })
+    st = reducer(st, { type: 'moveVertex', index: 1, to: { x: 0.64, y: 0.42 } })
+    st = reducer(st, { type: 'moveVertex', index: 2, to: { x: -0.38, y: 0.93 } })
+    // The shape's own centre is well away from the wheel centre — that is the setup.
+    expect(radiusOf(centroid(st.basePolygon).x, centroid(st.basePolygon).y)).toBeGreaterThan(0.2)
+
+    const reach = (dx: number, dy: number) => {
+      const next = reducer(st, {
+        type: 'dragMask',
+        deltaDisplay: { x: dx * 9, y: dy * 9 },
+        offsetAtStart: st.offset,
+      })
+      const c = centroid(displayPolygon(next))
+      return radiusOf(c.x, c.y)
+    }
+    const reaches = [reach(-1, 0), reach(1, 0), reach(0, -1), reach(0, 1)]
+    const spread = Math.max(...reaches) - Math.min(...reaches)
+    // Some spread is inherent: a large mask's vertices pin to the rim and pull the drawn
+    // centroid back. A directional BIAS is not.
+    expect(spread).toBeLessThan(0.1)
+    for (const r of reaches) expect(r).toBeGreaterThan(0.6)
+  })
+
+  it('still keeps a dragged mask on the wheel', () => {
+    let st = withState({})
+    st = reducer(st, { type: 'moveVertex', index: 0, to: { x: 0.5, y: -0.5 } })
+    const flung = reducer(st, {
+      type: 'dragMask',
+      deltaDisplay: { x: 40, y: 40 },
+      offsetAtStart: st.offset,
+    })
+    const c = centroid(displayPolygon(flung))
+    expect(radiusOf(c.x, c.y)).toBeLessThanOrEqual(1 + 1e-9)
+    for (const p of displayPolygon(flung)) {
+      expect(radiusOf(p.x, p.y)).toBeLessThanOrEqual(1 + 1e-9)
+    }
+  })
+
   it('resets when a preset is loaded', () => {
     const moved = reducer(initialState, {
       type: 'dragMask',
