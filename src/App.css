@@ -295,6 +295,11 @@
   border-color: var(--border-strong);
 }
 
+/* Mirrors the ring drawn on the wheel, so the pairing is legible in both directions. */
+.sample.highlighted {
+  border-color: var(--focus);
+}
+
 /* Generous neutral padding around each swatch, for the same reason as the wheel margin. */
 .sample-swatch {
   grid-area: swatch;

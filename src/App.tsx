@@ -5,7 +5,7 @@
  * two levels.
  */
 
-import { useCallback, useMemo, useReducer } from 'react'
+import { useCallback, useMemo, useReducer, useState } from 'react'
 import './App.css'
 import { MaskOverlay } from './components/MaskOverlay.tsx'
 import { MaskPanel } from './components/MaskPanel.tsx'
@@ -29,6 +29,17 @@ export default function App() {
    * what the mask is. The memos matter: without them, sampling would re-run on every
    * unrelated render, including every pointermove during a vertex drag.
    */
+  /**
+   * Which sample the colour list is pointing at (D46). Held here rather than in the
+   * reducer: it is presentational, changes on every pointer move across the list, and
+   * D18 keeps the reducer's state to things worth saving.
+   *
+   * An INDEX, not a sample — see the note in SampleList. If the mask changes while the
+   * pointer rests on a row, the index simply resolves to whatever is there now, or to
+   * nothing once the list is shorter.
+   */
+  const [highlighted, setHighlighted] = useState<number | null>(null)
+
   const { basePolygon, offset, rotation, size, sampleCount } = state
   const polygon = useMemo(
     () => displayPolygon({ basePolygon, offset, rotation, size }),
@@ -69,6 +80,9 @@ export default function App() {
     return fileName
   }, [samples, sheetContent])
 
+  const hovered = highlighted === null ? undefined : samples[highlighted]
+  const highlightedPoint = hovered ? { x: hovered.x, y: hovered.y } : null
+
   return (
     <main className="app">
       <div className="wheel">
@@ -76,6 +90,7 @@ export default function App() {
         <MaskOverlay
           polygon={polygon}
           offset={offset}
+          highlight={highlightedPoint}
           canDelete={basePolygon.length > MIN_VERTICES}
           dispatch={dispatch}
         />
@@ -98,7 +113,12 @@ export default function App() {
           paint.
         </p>
       </div>
-      <SampleList samples={samples} requested={sampleCount} />
+      <SampleList
+        samples={samples}
+        requested={sampleCount}
+        highlighted={highlighted}
+        onHighlight={setHighlighted}
+      />
     </main>
   )
 }

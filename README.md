@@ -19,6 +19,7 @@ Reference: James Gurney, *Color and Light* — gamut masking.
 - Matches each colour against two brands — AK Interactive (647 paints) and Vallejo
   (650) — listing whichever are within 5%, or saying so plainly when neither is
 - Drag inside the mask to move it; drag handles to reshape it
+- Hover (or tab to) a colour in the list to ring its position on the wheel
 - Saves the current wheel, mask and palette as a printable A4 PDF or a single JPEG
 
 ## What it deliberately does not do

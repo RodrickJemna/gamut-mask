@@ -19,6 +19,14 @@ const VIEW_MARGIN = 1.2
 const LETTER_RADIUS = 1.09
 const HANDLE_RADIUS = 0.028
 /**
+ * Ring drawn around the sample the pointer is over in the colour list (D46).
+ *
+ * Sized against real spacing rather than the sampler's floor: twelve samples in a triad
+ * sit roughly 0.27 apart and thirty-two about 0.17, so a 0.05 radius is easy to spot
+ * without touching its neighbours.
+ */
+const HIGHLIGHT_RADIUS = 0.05
+/**
  * Handles get an invisible hit area larger than their visible dot. Without it, the drawn
  * radius (~7 CSS px) is comparable to the edge hit-target's stroke, so reaching for a
  * handle lands on the edge instead and ADDS a vertex — which is a genuinely irritating
@@ -51,11 +59,13 @@ type Props = {
   polygon: Point[]
   /** Current base-space offset, so a body drag can be expressed relative to its start. */
   offset: Point
+  /** The sample the colour list is pointing at, or null (D46). */
+  highlight: Point | null
   canDelete: boolean
   dispatch: (action: Action) => void
 }
 
-export function MaskOverlay({ polygon, offset, canDelete, dispatch }: Props) {
+export function MaskOverlay({ polygon, offset, highlight, canDelete, dispatch }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   /**
    * Where a body drag started, and the offset it started from. Held in a ref rather than
@@ -262,6 +272,35 @@ export function MaskOverlay({ polygon, offset, canDelete, dispatch }: Props) {
           pointerEvents="none"
         />
       ))}
+
+      {/*
+        D46 — a ring around the hovered sample. Two concentric strokes, dark then light,
+        so it stays visible over any hue underneath, and pointer-events none because it
+        sits inside the mask directly on top of the body drag area.
+      */}
+      {highlight && (
+        <g pointerEvents="none">
+          <circle
+            cx={highlight.x}
+            cy={highlight.y}
+            r={HIGHLIGHT_RADIUS}
+            fill="none"
+            stroke="var(--mask-wash)"
+            strokeWidth="4"
+            vectorEffect="non-scaling-stroke"
+            opacity="0.7"
+          />
+          <circle
+            cx={highlight.x}
+            cy={highlight.y}
+            r={HIGHLIGHT_RADIUS}
+            fill="none"
+            stroke="var(--mask-line)"
+            strokeWidth="1.75"
+            vectorEffect="non-scaling-stroke"
+          />
+        </g>
+      )}
 
       {/* Hit areas last, so a handle always wins over the edge underneath it. */}
       {polygon.map((p, i) => (

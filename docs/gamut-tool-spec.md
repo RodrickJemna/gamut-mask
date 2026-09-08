@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.16
+Verzió: 0.17
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -132,6 +132,24 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D46 — Hover-kiemelés a listáról a körre**: a színlista egy sora fölé érve a körön
+  megjelenik egy gyűrű annál a mintánál. Fókuszra is, nem csak hoverre — a sorok eleve
+  `<button>`-ök, tehát a billentyűzetes végigtabolás ingyen megkapja.
+  - **Additív, nem visszavont döntés**: semmit nem érint az 5. és 7. pontból.
+  - **Az állapot nem a reducerben van**, hanem `useState`-ben az `App`-ban:
+    prezentációs, a lista fölötti minden pointer-mozgásra változik, és a D18 a reducert a
+    mentésre érdemes dolgokra tartja.
+  - **Indexet tárol, nem `Sample` objektumot.** Ha a maszk változik, amíg a kurzor egy
+    soron áll, egy eltárolt objektum elavul, és a kör egy már nem létező pozíciót
+    jelölne. Az index a mindenkori listára oldódik fel, vagy semmire, ha a lista
+    rövidebb lett — magától korrigál.
+  - **A gyűrűn `pointer-events: none`.** A maszkon *belül* van, pont a body-drag
+    találati területén; e nélkül egy swatch fölé érve a kör egy része
+    meghúzhatatlanná vált volna. Ugyanaz a hibaosztály, mint korábban a handle/él
+    ütközés — böngészőben ellenőrizve, hogy a gyűrű közepe alatt a maszk body-ja van.
+  - **Két koncentrikus vonás**, sötét majd világos, hogy bármilyen hue felett látszódjon.
+    A rádiusz `0.05`: tizenkét minta egy triádban kb. `0.27`-re esik egymástól,
+    harminckettő kb. `0.17`-re, tehát jól látható anélkül, hogy a szomszédjára lógna.
 - **D45 — JPEG-lap export**: ugyanaz a lap, mint a PDF (D43), egyetlen JPEG-ként.
   - **Egy layout, két kimenet**: a pozicionáló kód közös, egy `Surface` interfészen
     keresztül — a PDF `Content` és a `CanvasSurface` ugyanazt implementálja. Két külön
@@ -366,3 +384,4 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
 - 0.16 — **JPEG-lap export (D45)**: közös layout a PDF-fel egy `Surface` absztrakción át.
   A panel tömörítve, hogy a második export-gomb után a D10-es caveat 1280×720-on is
   látszódjon.
+- 0.17 — **hover-kiemelés (D46)**: a listáról a körre. Additív, semmit nem von vissza.

@@ -40,16 +40,27 @@ import { BRAND_TAG } from '../paints/types.ts'
 type Props = {
   samples: Sample[]
   requested: number
+  /** Index into `samples` currently highlighted on the wheel, or null (D46). */
+  highlighted: number | null
+  onHighlight: (index: number | null) => void
 }
 
-export function SampleList({ samples, requested }: Props) {
+export function SampleList({ samples, requested, highlighted, onHighlight }: Props) {
   const [copied, setCopied] = useState<string | null>(null)
 
+  /**
+   * Buckets carry each sample's INDEX as well as the sample. The index is what gets
+   * reported for highlighting: an index re-resolves against whatever `samples` currently
+   * holds, so nudging a slider mid-hover cannot leave the wheel marking a position that
+   * no longer exists.
+   */
   const wedges = useMemo(() => {
-    const buckets: Sample[][] = ANCHORS.map(() => [])
-    for (const sample of samples) buckets[wedgeIndexOf(sample.theta)].push(sample)
+    const buckets: { sample: Sample; index: number }[][] = ANCHORS.map(() => [])
+    samples.forEach((sample, index) => {
+      buckets[wedgeIndexOf(sample.theta)].push({ sample, index })
+    })
     for (const bucket of buckets) {
-      bucket.sort((a, b) => wedgeOffsetOf(a.theta) - wedgeOffsetOf(b.theta))
+      bucket.sort((a, b) => wedgeOffsetOf(a.sample.theta) - wedgeOffsetOf(b.sample.theta))
     }
     return buckets
   }, [samples])
@@ -94,7 +105,7 @@ export function SampleList({ samples, requested }: Props) {
                   <p className="wedge-empty">Not in mask</p>
                 ) : (
                   <div className="samples-grid">
-                    {bucket.map((sample) => {
+                    {bucket.map(({ sample, index }) => {
                       const hex = toHex(sample.rgb8)
                       // Keyed on identity, not index: index keys make React reuse a row
                       // for a different colour when the count changes, which shows as a
@@ -106,8 +117,14 @@ export function SampleList({ samples, requested }: Props) {
                         <button
                           key={key}
                           type="button"
-                          className="sample"
+                          className={index === highlighted ? 'sample highlighted' : 'sample'}
                           onClick={() => void copy(hex)}
+                          onPointerEnter={() => onHighlight(index)}
+                          onPointerLeave={() => onHighlight(null)}
+                          // Focus as well as hover: the rows are buttons, so this comes
+                          // almost free for anyone tabbing through the list.
+                          onFocus={() => onHighlight(index)}
+                          onBlur={() => onHighlight(null)}
                           title={
                             matches.length > 0
                               ? matches
