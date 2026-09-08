@@ -124,8 +124,10 @@ describe('presets (D23)', () => {
       .toEqual(buildPreset('triad', 0))
   })
 
-  it('ignores the atmospheric preset while its geometry is undecided', () => {
-    expect(reducer(initialState, { type: 'loadPreset', id: 'atmospheric' })).toBe(initialState)
+  it('loads the atmospheric preset (D38)', () => {
+    const next = reducer(initialState, { type: 'loadPreset', id: 'atmospheric' })
+    expect(next.preset).toBe('atmospheric')
+    expect(next.basePolygon).toEqual(buildPreset('atmospheric', 0))
   })
 })
 

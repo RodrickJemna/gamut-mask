@@ -91,12 +91,34 @@ describe('count (D17, D25)', () => {
     expect(sampleMask(bigTriad, -3)).toEqual([])
   })
 
-  it('still fills a very small mask, because the pitch adapts to area', () => {
-    // Worth pinning: D25 anticipates "N will not fit", but shrinking the mask only makes
-    // the grid finer, so N keeps fitting. See the note on the shortfall branch below.
-    for (const r of [0.3, 0.05, 0.01, 0.002]) {
-      const tiny: Polygon = [polar(0, r), polar(120, r), polar(240, r)]
-      expect(sampleMask(tiny, 12)).toHaveLength(12)
+  it('fills any mask of ordinary size', () => {
+    for (const r of [0.5, 0.2, 0.1] ) {
+      const poly: Polygon = [polar(0, r), polar(120, r), polar(240, r)]
+      expect(sampleMask(poly, 12)).toHaveLength(12)
+    }
+  })
+
+  /**
+   * D25 via D39. The pitch floor is what makes the shortfall reachable: without it the
+   * grid just gets finer as the mask shrinks, so N always fit and a radius-0.002 mask
+   * returned 12 indistinguishable greys.
+   */
+  it('returns progressively fewer samples as the mask shrinks past the pitch floor', () => {
+    const counts = [0.1, 0.06, 0.02, 0.01].map((r) =>
+      sampleMask([polar(0, r), polar(120, r), polar(240, r)], 12).length,
+    )
+    expect(counts[0]).toBe(12)
+    expect(counts[1]).toBeLessThan(12)
+    expect(counts[3]).toBeLessThanOrEqual(counts[2])
+    expect(counts[2]).toBeLessThanOrEqual(counts[1])
+    for (const c of counts) expect(c).toBeGreaterThan(0)
+  })
+
+  it('never returns two samples with the same colour, at any mask size', () => {
+    for (const r of [0.5, 0.1, 0.06, 0.02, 0.01]) {
+      const samples = sampleMask([polar(0, r), polar(120, r), polar(240, r)], 12)
+      const hexes = new Set(samples.map((s) => s.rgb8.join(',')))
+      expect(hexes.size).toBe(samples.length)
     }
   })
 

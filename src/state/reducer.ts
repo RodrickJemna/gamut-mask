@@ -78,7 +78,6 @@ export function reducer(state: AppState, action: Action): AppState {
      * requirement.
      */
     case 'loadPreset': {
-      if (action.id === 'atmospheric') return state // not defined yet; see mask/presets.ts
       return {
         ...state,
         basePolygon: buildPreset(action.id, 0),

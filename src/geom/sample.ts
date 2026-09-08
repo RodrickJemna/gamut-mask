@@ -52,6 +52,29 @@ const LLOYD_CELLS = 3000
 
 const LLOYD_ITERATIONS = 3
 
+/**
+ * Smallest grid pitch the search will use, in wheel units — and the reason D25's
+ * shortfall branch is now reachable.
+ *
+ * Without a floor the pitch adapts to the mask without limit, so shrinking the mask only
+ * makes the grid finer and N always fits. D25 anticipates the opposite ("if N samples do
+ * not fit, fewer come"), and that intent went unrealised: a radius-0.002 mask still
+ * returned 12 samples, which were 12 indistinguishable greys.
+ *
+ * 0.015 is measured, not chosen by taste. Stepping radially by 0.015 anywhere on the
+ * wheel changes the 8-bit output by about 3 of 255 levels, and near the neutral centre —
+ * the flattest region, and the one a tiny mask lives in — by exactly 3. Below that,
+ * samples are duplicates in everything but coordinates.
+ *
+ * It cannot affect a mask of ordinary size: a triad needs a radius under roughly 0.05
+ * before the floor binds at all.
+ *
+ * Note what this does NOT claim. Two samples at the same radius near the centre are both
+ * near-grey however far apart they are; no spacing rule can fix that. The floor stops the
+ * sampler reporting more colours than a region can hold, which is exactly D25's point.
+ */
+const MIN_PITCH = 0.015
+
 function cellCount(b: Bounds, pitch: number): number {
   const nx = Math.floor(b.maxX / pitch) - Math.ceil(b.minX / pitch) + 1
   const ny = Math.floor(b.maxY / pitch) - Math.ceil(b.minY / pitch) + 1
@@ -112,7 +135,7 @@ function seedPoints(poly: Polygon, n: number): { points: Point[]; pitch: number 
   if (!(span > 0)) return { points: [], pitch: 0 }
 
   // Coarse enough to under-fill, so the halving loop below approaches n from beneath.
-  let lo = span / Math.ceil(Math.sqrt(n))
+  let lo = Math.max(MIN_PITCH, span / Math.ceil(Math.sqrt(n)))
   let hi = span * 2
 
   // Never probe a pitch whose grid exceeds the cap. A mask filling almost none of its
@@ -124,7 +147,8 @@ function seedPoints(poly: Polygon, n: number): { points: Point[]; pitch: number 
   let loPoints = gridPoints(poly, b, lo)
   while (loPoints.length < n) {
     const next = lo / 2
-    if (cellCount(b, next) > CELL_CAP) break
+    // Stop at the floor rather than chasing N into indistinguishable colours (D25).
+    if (next < MIN_PITCH || cellCount(b, next) > CELL_CAP) break
     lo = next
     loPoints = gridPoints(poly, b, lo)
   }

@@ -10,22 +10,18 @@
  */
 
 import { polar, type Point } from '../color/wheel.ts'
-import { signedArea, type Polygon } from '../geom/polygon.ts'
+import { clampPolygon, signedArea, type Polygon } from '../geom/polygon.ts'
 
 export type PresetId = 'triad' | 'split' | 'analogous' | 'atmospheric'
 
-/**
- * The presets `buildPreset` can actually produce. `atmospheric` is deliberately outside
- * this type — see the note at the bottom of the file — so it is a type error to ask for
- * it rather than something that fails at runtime.
- */
-export type BuildablePresetId = Exclude<PresetId, 'atmospheric'>
+/** Every preset is buildable now that atmospheric has a geometry. */
+export type BuildablePresetId = PresetId
 
 export const PRESETS: readonly { id: PresetId; label: string; available: boolean }[] = [
   { id: 'triad', label: 'Triad', available: true },
   { id: 'split', label: 'Split complementary', available: true },
   { id: 'analogous', label: 'Analogous', available: true },
-  { id: 'atmospheric', label: 'Atmospheric', available: false },
+  { id: 'atmospheric', label: 'Atmospheric', available: true },
 ]
 
 /** Triad vertices sit here; the edges then sweep in toward the neutral centre. */
@@ -44,6 +40,15 @@ const ANALOGOUS_OUTER = 0.95
  * coarse enough that every handle can still be grabbed individually (F2).
  */
 const ARC_CHORD = 0.09
+
+/**
+ * Atmospheric: a rounded blob pushed off-centre along the base hue, overlapping the
+ * neutral point. Distance from the wheel centre to the blob's centre, then its radius.
+ * It reaches out to 0.62 and contains the origin with room to spare.
+ */
+const ATMO_OFFSET = 0.28
+const ATMO_RADIUS = 0.34
+const ATMO_VERTICES = 14
 
 /**
  * Samples an arc inclusively from `fromDeg` to `toDeg`, spacing vertices by roughly
@@ -101,24 +106,59 @@ export function buildPreset(id: BuildablePresetId, baseAngle: number): Polygon {
         ...arc(baseAngle - ANALOGOUS_HALF_WIDTH, baseAngle + ANALOGOUS_HALF_WIDTH, ANALOGOUS_OUTER),
         ...arc(baseAngle + ANALOGOUS_HALF_WIDTH, baseAngle - ANALOGOUS_HALF_WIDTH, ANALOGOUS_INNER),
       ])
+
+    /**
+     * Atmospheric. See the reasoning note at the bottom of the file — the short version
+     * is that this is the only preset whose defining property is limited chroma rather
+     * than a hue relationship, and the only one that is OFF-CENTRE.
+     */
+    case 'atmospheric': {
+      const centre = polar(baseAngle, ATMO_OFFSET)
+      const ring: Point[] = []
+      for (let i = 0; i < ATMO_VERTICES; i++) {
+        // Spokes are measured FROM the base angle, not from 0, so the whole 14-gon turns
+        // rigidly with the base hue. With absolute spokes the blob's centre moved but
+        // its vertex phase did not, so the polygon at one base angle was not a rotation
+        // of the polygon at another — congruent as circles, but not as polygons.
+        const spoke = polar(baseAngle + (i * 360) / ATMO_VERTICES, ATMO_RADIUS)
+        ring.push({ x: centre.x + spoke.x, y: centre.y + spoke.y })
+      }
+      return withPositiveWinding(clampPolygon(ring))
+    }
   }
 }
 
 /**
- * OPEN QUESTION — the atmospheric preset.
+ * WHY THE ATMOSPHERIC PRESET IS SHAPED LIKE THIS.
  *
- * F4 lists it and D23 fixes how presets are parameterised, but nothing in the spec
- * defines its geometry, and unlike the other three the name does not determine it. In
- * Gurney's usage an atmospheric palette is a small low-chroma region, often pulled toward
- * the light's hue, sometimes a narrow shape hugging the centre. Several shapes fit that
- * description and they produce visibly different palettes:
+ * The spec names it (F4) but never defines its geometry, and unlike the other three the
+ * name does not determine it. Three shapes were on the table:
  *
- *   (a) a small ring near the centre, offset toward `baseAngle`
+ *   (a) a blob near the centre, offset toward `baseAngle`
  *   (b) a narrow analogous wedge capped at a low outer radius — a muted analogous
- *   (c) a wide, shallow arc band at low radius spanning most of the wheel
+ *   (c) a wide, shallow band at low radius spanning most of the wheel
  *
- * Picking one silently is exactly the invented behaviour CLAUDE.md rules out, so it is
- * absent from `BuildablePresetId` and marked `available: false` above. MaskPanel renders
- * its button disabled. Once the author decides, it is a single `case` here plus flipping
- * that flag — nothing else in the app needs to change.
+ * (b) is rejected as redundant: loading Analogous and pulling the size slider down
+ * already produces it, and a preset that duplicates an existing preset plus one slider
+ * is dead weight on the panel.
+ *
+ * (c) is rejected for nearly the same reason: a low-radius band spanning most of the
+ * wheel is approximately a small disk about the centre, which is what the size slider
+ * does to any preset.
+ *
+ * (a) is the one that adds capability the rest of the UI cannot reach. Rotation and
+ * scaling both pivot on the wheel CENTRE (F5), so every other mask stays centred; an
+ * off-centre mask is not reachable by any combination of the existing controls. That
+ * makes it the only genuinely new shape of the three, and it happens to be the one that
+ * matches what atmospheric haze does: everything desaturates and leans toward one hue.
+ *
+ * The geometry: a 14-gon of radius 0.34 whose centre sits 0.28 out along the base hue.
+ * It therefore contains the neutral point (0.28 < 0.34) and reaches out to 0.62. So the
+ * palette is near-neutrals of every hue, plus progressively more saturated versions of
+ * the base hue only — which is the point.
+ *
+ * It also gives the two sliders a natural reading for this preset specifically: rotate
+ * chooses the atmosphere hue, size chooses how hazy.
+ *
+ * Clamped on construction for safety; at these constants nothing actually clamps.
  */

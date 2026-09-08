@@ -1,7 +1,8 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.9 (build-ready)
-Státusz: FÁZIS 1 — DESIGN lezárva. Kód még nincs.
+Verzió: 0.10
+Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
+D35 pontosítása implementáció közbeni mérésekből származnak.
 
 ---
 
@@ -61,7 +62,13 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
     se tábla, se keresés, a felhasználó nem is látja. Ez az egyetlen hely, ahol
     perceptuális színtér szerepel a rendszerben.
   - **Az ára, kimondva**: két különböző hue ugyanolyan radiális pozíciója nem
-    összemérhetően telített. Hue-n belül a „kifelé telítettebb" továbbra is igaz.
+    összemérhetően telített. Hue-n belül a „kifelé telítettebb" gyakorlatilag igaz, de
+    **nem pontosan** — ez a 0.10-ben mérésből derült ki. A nyers interpoláció chromája
+    monoton, viszont a D3 chroma-redukció a gamut határára vág, és a határ chromája
+    adott `L`-en szűkül, ahogy `L` a sötét perem felé esik. A kék környékén a
+    centrum–perem szakasz kilóg a gamutból, ezért a chroma legfeljebb `2.3e-4`-lel
+    (0,08%, egy 8-bites lépés kb. ötöde) visszaesik, 720 mért hue közül ~10-en. Nem
+    látható, de nem nulla. A `wheel.test.ts` korlátos guardként tartja, nem törölte.
 - **D3 — Gamut**: konstrukció szerint minden pont sRGB-ben van. Az Oklab-interpoláció
   numerikusan kilóghat; ilyenkor chroma-redukció (`a`, `b` skálázása) az adott `L`-en,
   amíg befér. Nincs csendes csatorna-clip.
@@ -106,6 +113,36 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
 - **D14 — Nincs zustand.** `useReducer` elég.
 - **D26 — A UI nyelve angol.** Nincs i18n réteg.
 - **D27 — Gép: Apple Silicon, arm64.** Node 24 LTS natív .pkg-ből. Lásd `setup-macos.md`.
+- **D38 — Az atmoszférikus preset geometriája**: kör alakú (14 szögpont) blob,
+  `r = 0.34`, a középtől `0.28`-ra kitolva a base hue irányába. Tehát tartalmazza a
+  semleges pontot, és `0.62`-ig ér ki.
+  - **Miért ez**: az F4 megnevezi, de a spec nem definiálta, és a nevéből — a másik
+    hárommal ellentétben — nem következik. Két alternatíva kiesett, mert nem ad új
+    képességet: az „alacsony külső rádiuszra vágott szűk analóg ék" előáll az Analogous
+    presetből a size csúszkával, az „alacsony rádiuszú széles sáv" pedig közelítőleg egy
+    kis, középre húzott diszk, azaz ugyancsak a size csúszka.
+  - **A kitolás a lényeg**: a rotálás és a skálázás egyaránt a *közép* körül történik
+    (F5), tehát minden más mask középre szimmetrikus marad — egy **nem középre**
+    helyezett maskot a meglévő kontrollok egyik kombinációja sem tud előállítani. Ez az
+    egyetlen valóban új alak a három közül, és pont azt írja le, amit a légköri távlat
+    tesz: minden tompul és egy hue felé húz.
+  - **Mellékhatás, kívánatos**: ennél a presetnél a két csúszka önálló jelentést kap —
+    a rotate a „légkör hue-ja", a size a „mennyire párás".
+- **D39 — Mintavételi minimum-osztás**: a rácsméret-keresés nem megy `0.015` wheel-egység
+  alá (`MIN_PITCH`).
+  - **Miért kell**: nélküle a rácsméret korlátlanul alkalmazkodik a mask méretéhez, tehát
+    a mask zsugorítása csak finomítja a rácsot, és N mindig elfér. A D25 ennek az
+    ellenkezőjét feltételezi, és a szándéka nem érvényesült: egy `r = 0.002` mask is 12
+    mintát adott, ami 12 megkülönböztethetetlen szürke.
+  - **Miért `0.015`**: mérve. Radiálisan `0.015`-öt lépve az sRGB kimenet ~3/255-tel
+    változik, a semleges közép környékén — a legsimább tartományban, ahol egy pici mask
+    él — pontosan 3-mal. Ez alatt a minták a koordinátájukon kívül duplikátumok.
+  - **Hatása**: `r < ~0.05` alatt kezd fogni. `r = 0.06` → 8 minta, `r = 0.02` → 2,
+    `r = 0.01` → 1, és minden minta eltérő hex. Normál méretű maskot nem érint: mind a
+    négy preset N = 12-re és N = 32-re is pontosan annyit ad.
+  - **Amit nem állít**: a közép közelében két minta akármilyen távol is közel-szürke; ezt
+    osztás-szabály nem javítja. A padló azt akadályozza meg, hogy a mintavevő több színt
+    jelentsen, mint amennyit a terület tartalmazni tud — pontosan a D25 lényege.
 
 ---
 
@@ -185,3 +222,8 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   szabály kiesett (D15, D19, D20, D29, D31, D33 visszavonva). A kör modellje most
   D35: YURMBY-szög, telített sRGB perem, normalizált rádiusz, Oklab-interpolált
   átmenet. `culori` elhagyva, nulla runtime dep (D37). Lista-tartalom rögzítve (D36).
+- 0.10 — **implementáció**: v1 kész. Három nyitott kérdés eldöntve: az atmoszférikus
+  preset geometriája (D38), a mintavételi minimum-osztás a D25 érvényre juttatásához
+  (D39), és a D35 „kifelé telítettebb" állításának pontosítása mérés alapján. A
+  `docs/implementation-plan.md` sorolja azt az öt pontot, ahol az implementáció
+  ellentmondott a tervnek vagy a specnek.
