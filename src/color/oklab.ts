@@ -1,49 +1,109 @@
 /**
  * Oklab <-> sRGB. Spec: D3, D32, D37.
  *
- * SCOPE. This file exists for one reason: to interpolate the centre-to-rim transition of
- * the wheel in a perceptual space (D35). It is not a colour library. Do not add hue
- * rotation, OkLCh, colour difference, other spaces, or a named-colour table. If something
- * here is not used by `wheel.ts` or `format.ts`, it should not be here (D37).
+ * Exists for one reason: to interpolate the wheel's centre-to-rim transition in a
+ * perceptual space (D35). Not a colour library — no OkLCh, no hue rotation, no other
+ * spaces, no named colours (D37).
  *
- * IMPLEMENT
+ * The matrices are Ottosson's originals, transcribed from
+ * https://bottosson.github.io/posts/oklab/, linear sRGB <-> Oklab directly. We do not
+ * go through XYZ (D32).
  *
- *   type Rgb   = { r: number; g: number; b: number }   // sRGB, gamma-encoded, 0..1
- *   type Lrgb  = { r: number; g: number; b: number }   // linear sRGB, 0..1 nominal
- *   type Oklab = { L: number; a: number; b: number }
- *
- *   srgbToLinear(c: number): number     // per channel
- *   linearToSrgb(c: number): number     // per channel
- *   lrgbToOklab(c: Lrgb): Oklab
- *   oklabToLrgb(c: Oklab): Lrgb
- *   inGamut(c: Lrgb, eps?: number): boolean
- *   reduceChroma(c: Oklab): Oklab       // D3, see below
- *   oklabToSrgb8(c: Oklab): [number, number, number]  // 0..255 ints, gamut-safe
- *
- * The transfer function is the real sRGB piecewise curve, not `pow(c, 2.2)`:
- *   to linear:  c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
- *   to sRGB:    c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055
- *
- * Structure of the conversion (Ottosson, https://bottosson.github.io/posts/oklab/):
- *   linear sRGB --[3x3 M1]--> LMS --[cbrt per component]--> LMS' --[3x3 M2]--> Oklab
- * and the inverse with M2^-1, cube, M1^-1. We do NOT go through XYZ (D32).
- *
- * TRANSCRIBE THE 24 CONSTANTS FROM THE SOURCE, do not take them from memory or from a
- * chat message, mine included. This is the single most expensive place in the project to
- * be subtly wrong (CLAUDE.md, fidelity rules). Use `Math.cbrt`, and note that `cbrt`
- * handles negative inputs correctly while `x ** (1/3)` returns NaN for them — LMS
- * components can go slightly negative for near-gamut-edge colours.
- *
- * CHROMA REDUCTION (D3). `oklabToLrgb` of an interpolated Oklab value can fall outside
- * the sRGB cube, because the gamut is not convex in Oklab. When it does, hold `L` fixed
- * and scale `a` and `b` by a common factor `s` until it fits. Find `s` by bisection on
- * [0, 1] — 16-20 iterations puts the error far below one 8-bit step, and `s = 0` is
- * guaranteed to be in gamut for `L` in [0,1] because that is the neutral axis. Do not
- * clamp the RGB channels instead: that shifts hue and lightness at the same time, and it
- * is exactly the "silent channel clip" D3 forbids.
- *
- * The final 0..255 conversion clamps only to absorb float dust (values like 1.0000002)
- * after reduction has already succeeded — round with `Math.round`, then clamp to 0..255.
- *
- * TESTS -> oklab.test.ts
+ * One `Rgb` type serves both gamma-encoded and linear sRGB: a separate `Lrgb` alias
+ * would be structurally identical and so enforce nothing. The function names carry the
+ * space instead.
  */
+
+export type Rgb = { r: number; g: number; b: number }
+export type Oklab = { L: number; a: number; b: number }
+
+/** sRGB transfer function, the real piecewise curve rather than a 2.2 power. */
+export function srgbToLinear(c: number): number {
+  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+}
+
+export function linearToSrgb(c: number): number {
+  return c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055
+}
+
+export function lrgbToOklab({ r, g, b }: Rgb): Oklab {
+  const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b
+  const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b
+  const s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b
+
+  // cbrt, not ** (1/3): these can go slightly negative near the gamut edge.
+  const l_ = Math.cbrt(l)
+  const m_ = Math.cbrt(m)
+  const s_ = Math.cbrt(s)
+
+  return {
+    L: 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+    a: 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+    b: 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+  }
+}
+
+export function oklabToLrgb({ L, a, b }: Oklab): Rgb {
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b
+  const s_ = L - 0.0894841775 * a - 1.2914855480 * b
+
+  const l = l_ * l_ * l_
+  const m = m_ * m_ * m_
+  const s = s_ * s_ * s_
+
+  return {
+    r: 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    g: -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    b: -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+  }
+}
+
+/** Tolerance absorbing float dust at the cube faces, well below one 8-bit step. */
+const GAMUT_EPS = 1e-9
+
+export function inGamut({ r, g, b }: Rgb): boolean {
+  return (
+    r >= -GAMUT_EPS && r <= 1 + GAMUT_EPS &&
+    g >= -GAMUT_EPS && g <= 1 + GAMUT_EPS &&
+    b >= -GAMUT_EPS && b <= 1 + GAMUT_EPS
+  )
+}
+
+/**
+ * D3: when an interpolated Oklab value falls outside sRGB, hold `L` and scale `a`/`b`
+ * by a common factor until it fits. Never clip channels — that shifts hue and lightness
+ * together, which is the silent clip D3 forbids.
+ *
+ * `s = 0` is always in gamut for `L` in [0,1], because the neutral axis maps to
+ * `r = g = b = L^3` (each row of the inverse matrix sums to 1). Outside that `L` range
+ * no chroma helps and the result stays out; the byte conversion clamps it.
+ *
+ * Bisection assumes the in-gamut set along the ray is the interval [0, sMax] — i.e. that
+ * the constant-L slice of the sRGB gamut is star-shaped about the neutral point. That
+ * holds for sRGB in Oklab in practice but is not proven here; it is the same assumption
+ * CSS Color 4 gamut mapping makes. 20 steps resolve to ~1e-6, far under 1/255.
+ */
+export function reduceChroma(c: Oklab): Oklab {
+  if (inGamut(oklabToLrgb(c))) return c
+  if (c.a === 0 && c.b === 0) return c
+
+  let lo = 0
+  let hi = 1
+  for (let i = 0; i < 20; i++) {
+    const mid = (lo + hi) / 2
+    if (inGamut(oklabToLrgb({ L: c.L, a: c.a * mid, b: c.b * mid }))) lo = mid
+    else hi = mid
+  }
+  return { L: c.L, a: c.a * lo, b: c.b * lo }
+}
+
+function toByte(c: number): number {
+  return Math.min(255, Math.max(0, Math.round(linearToSrgb(c) * 255)))
+}
+
+/** Gamut-safe Oklab -> 8-bit sRGB. Reduces chroma first (D3), then clamps float dust. */
+export function oklabToSrgb8(c: Oklab): [number, number, number] {
+  const { r, g, b } = oklabToLrgb(reduceChroma(c))
+  return [toByte(r), toByte(g), toByte(b)]
+}
