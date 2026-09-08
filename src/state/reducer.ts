@@ -31,9 +31,17 @@ export const initialState: AppState = {
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v))
 
-/** The mask as drawn: rotation then size, both about the wheel centre (F5). */
-export function displayPolygon(state: AppState): Point[] {
-  return scale(rotate(state.basePolygon, state.rotation), state.size)
+/**
+ * The mask as drawn: rotation then size, both about the wheel centre (F5).
+ *
+ * Takes only the three fields it needs rather than the whole AppState, so the caller can
+ * memoise on exactly those and not recompute when an unrelated field like `dragging`
+ * changes. AppState satisfies this structurally.
+ */
+export function displayPolygon(
+  mask: Pick<AppState, 'basePolygon' | 'rotation' | 'size'>,
+): Point[] {
+  return scale(rotate(mask.basePolygon, mask.rotation), mask.size)
 }
 
 /**

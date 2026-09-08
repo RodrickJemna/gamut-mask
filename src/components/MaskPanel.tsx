@@ -1,50 +1,98 @@
 /**
- * The control panel to the right of the wheel. Spec: F4, F5, F6, D23, D17, D26.
+ * The control panel beside the wheel. Spec: F4, F5, F6, D23, D17, D26.
  *
- * IMPLEMENT
+ * Native range inputs throughout: keyboard-accessible and draggable for free, and a
+ * custom slider is exactly the kind of thing "measuring instrument, not a landing page"
+ * rules out. All labels English (D26); no i18n layer.
  *
- *   function MaskPanel(props: {
- *     preset: PresetId | null
- *     rotation: number
- *     size: number
- *     sampleCount: number
- *     dispatch: (a: Action) => void
- *   }): JSX.Element
- *
- * CONTENTS, in this order (spec section 6, "Layout"): four preset buttons, then three
- * sliders — rotate, size, colors.
- *
- *   presets      4 buttons (F4). The one matching `preset` is shown active; after any
- *                vertex edit `preset` is null and none is active. Clicking replaces the
- *                mask immediately, no confirmation (D23).
- *                `atmospheric` is undecided — see the open question in `mask/presets.ts`.
- *                Render it disabled until it is settled, rather than wiring it to a
- *                guessed shape.
- *
- *   rotate       0-359 deg, step 1. Maps to `setRotation` (F5).
- *   size         scale factor, roughly 0.05-1, step 0.01. Maps to `setSize` (F5).
- *   colors       N, 4-32, step 1, default 12. Maps to `setSampleCount` (D17).
- *
- * Use native `<input type="range">`. It is keyboard accessible and draggable for free,
- * and a custom slider is exactly the kind of thing the spec's "measuring instrument, not
- * a landing page" line rules out. Style the track and thumb in CSS to neutral greys.
- *
- * Each slider is a `<label>` wrapping its input with the name on the left and the current
- * value on the right — the value readout matters more than usual here, because rotation
- * and size are the two numbers a user would want to reproduce later.
- *
- * These are controlled inputs: `value` from props, `onChange` dispatching. Do not keep a
- * local `useState` mirror of the slider position — that is the standard way to end up
- * with two sources of truth and a slider that fights the reducer.
- *
- * `size` and `colors` are fine to dispatch on every `change` event. Rotation at step 1
- * fires up to 360 dispatches per sweep, each re-running sampling; if that drags, round
- * the sample-list input rather than debouncing the slider, so the wheel stays live.
- *
- * D25: when fewer than N samples fit, the actual count is shown — that text belongs in
- * `SampleList`, next to the samples, not on this slider.
- *
- * All labels in English (D26). No i18n layer, no translation keys.
- *
- * No test file — CLAUDE.md: no UI tests.
+ * These are controlled inputs — value from props, onChange dispatching. No local useState
+ * mirror of a slider position, which is the standard way to end up with two sources of
+ * truth and a control that fights the reducer.
  */
+
+import { PRESETS } from '../mask/presets.ts'
+import { MAX_SAMPLES, MAX_SIZE, MIN_SAMPLES, MIN_SIZE } from '../state/reducer.ts'
+import type { Action, AppState } from '../state/types.ts'
+
+type Props = {
+  state: AppState
+  dispatch: (action: Action) => void
+}
+
+export function MaskPanel({ state, dispatch }: Props) {
+  return (
+    <aside className="panel">
+      <section>
+        <h2>Mask</h2>
+        <div className="presets">
+          {PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              aria-pressed={state.preset === preset.id}
+              disabled={!preset.available}
+              // The atmospheric preset has no agreed geometry yet; see mask/presets.ts.
+              title={preset.available ? undefined : 'Geometry not defined yet'}
+              onClick={() => dispatch({ type: 'loadPreset', id: preset.id })}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2>Shape</h2>
+
+        <label className="slider">
+          <span>Rotate</span>
+          <span className="value">{Math.round(state.rotation)}&deg;</span>
+          <input
+            type="range"
+            min={0}
+            max={359}
+            step={1}
+            value={Math.round(state.rotation)}
+            onChange={(e) => dispatch({ type: 'setRotation', deg: e.currentTarget.valueAsNumber })}
+          />
+        </label>
+
+        <label className="slider">
+          <span>Size</span>
+          <span className="value">{Math.round(state.size * 100)}%</span>
+          <input
+            type="range"
+            min={MIN_SIZE}
+            max={MAX_SIZE}
+            step={0.01}
+            value={state.size}
+            onChange={(e) => dispatch({ type: 'setSize', factor: e.currentTarget.valueAsNumber })}
+          />
+        </label>
+
+        <label className="slider">
+          <span>Colors</span>
+          <span className="value">{state.sampleCount}</span>
+          <input
+            type="range"
+            min={MIN_SAMPLES}
+            max={MAX_SAMPLES}
+            step={1}
+            value={state.sampleCount}
+            onChange={(e) =>
+              dispatch({ type: 'setSampleCount', n: e.currentTarget.valueAsNumber })
+            }
+          />
+        </label>
+      </section>
+
+      <section>
+        <h2>Editing</h2>
+        <p className="samples-note">
+          Drag a handle to move a vertex. Click an edge to add one. Alt-click a handle to
+          remove it.
+        </p>
+      </section>
+    </aside>
+  )
+}

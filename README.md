@@ -1,75 +1,68 @@
-# React + TypeScript + Vite
+# Gamut Mask Tool
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A gamut-masking and palette-planning tool for miniature painting. Draw a mask on a
+YURMBY colour wheel and read off the colours inside it.
 
-Currently, two official plugins are available:
+Screen-only, session-based, offline. No backend, no accounts, no build-time data.
+Personal hobby project.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Reference: James Gurney, *Color and Light* — gamut masking.
 
-## React Compiler
+## What it does
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Renders a colour wheel per pixel: angle is hue, radius is saturation
+- Free polygon mask editor — drag, add and remove vertices
+- Presets: triad, split complementary, analogous wedge
+- Rotate and scale the mask about the wheel centre
+- Lists the colours inside the mask with hex, lightness and saturation; click to copy
 
-## Expanding the ESLint configuration
+## What it deliberately does not do
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+No paint database or paint matching, no image input, no export beyond the clipboard, no
+value/lightness axis, no mobile layout. These are settled decisions with reasons
+recorded, not gaps — see sections 5 and 7 of the spec before proposing any of them.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## The wheel model
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- **Angle** is the sRGB hue-hexagon angle. Red at the top, clockwise, the six anchors
+  (R Y G C B M) exactly 60° apart. Complements sit opposite: R↔C, Y↔B, G↔M.
+- **Rim** is the fully saturated sRGB colour at that hue — by definition the maximum
+  chroma there, so no gamut search is needed.
+- **Centre** is neutral grey at Oklab `L = 0.6`.
+- **Radius** interpolates centre to rim *in Oklab*, normalised per hue: `t = 0.7` means
+  70% of the way to full saturation for that hue, not an absolute chroma.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Interpolating in Oklab rather than sRGB is the only place a perceptual space appears;
+sRGB interpolation makes visible mud in the mid rings, which is exactly where muted
+palettes live. The stated price is that equal radii on different hues are not comparably
+saturated.
 
-```
+The pipeline assumes sRGB. On an uncalibrated monitor it plans relative harmony; it does
+not predict absolute paint colour.
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+## Stack
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Vite, React 19, TypeScript, plain CSS. **Zero runtime dependencies beyond React and
+react-dom** — the Oklab ↔ linear sRGB conversion is about 30 lines of our own code using
+Ottosson's original matrices. Vitest covers the colour maths and geometry only.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+The greys are functional, not decorative: the wheel is the only saturated thing on
+screen so that simultaneous contrast does not distort colour judgement.
+
+## Commands
 
 ```
+npm install
+npm run dev      # Vite dev server
+npm test         # vitest
+npm run build    # tsc -b && vite build
+npm run lint     # eslint .
+```
+
+## Docs
+
+- `docs/gamut-tool-spec.md` — the contract. Wheel model, valid decisions with rationale,
+  withdrawn decisions and why, explicit non-goals. Written in Hungarian.
+- `docs/implementation-plan.md` — file map, the wheel-space coordinate convention, and
+  the colour pipeline end to end.
+- `docs/setup-macos.md` — how the toolchain was installed. Historical reference.

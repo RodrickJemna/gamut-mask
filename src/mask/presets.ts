@@ -38,16 +38,26 @@ const SPLIT_SPREAD = 32
 const ANALOGOUS_HALF_WIDTH = 26
 const ANALOGOUS_INNER = 0.22
 const ANALOGOUS_OUTER = 0.95
-/** Arc sampling step in degrees — fine enough to read as a curve, coarse enough to drag. */
-const ARC_STEP = 5
 
 /**
- * Samples an arc inclusively from `fromDeg` to `toDeg` at a fixed angular step, so vertex
- * counts are deterministic and stay small enough to edit by hand (F2).
+ * Target spacing between arc vertices, in wheel units. Fine enough to read as a curve,
+ * coarse enough that every handle can still be grabbed individually (F2).
+ */
+const ARC_CHORD = 0.09
+
+/**
+ * Samples an arc inclusively from `fromDeg` to `toDeg`, spacing vertices by roughly
+ * ARC_CHORD along the arc rather than by a fixed angle.
+ *
+ * A fixed angular step looks fine on the outer arc and collapses on the inner one: arc
+ * length scales with radius, so the same 5 degrees that spaces handles nicely at r = 0.95
+ * piles them into an unclickable overlapping cluster at r = 0.22. That is exactly what
+ * the analogous wedge looked like before this was chord-based.
  */
 function arc(fromDeg: number, toDeg: number, radius: number): Point[] {
   const span = toDeg - fromDeg
-  const steps = Math.max(1, Math.ceil(Math.abs(span) / ARC_STEP))
+  const arcLength = Math.abs(span) * (Math.PI / 180) * radius
+  const steps = Math.max(1, Math.ceil(arcLength / ARC_CHORD))
   const out: Point[] = []
   for (let i = 0; i <= steps; i++) {
     out.push(polar(fromDeg + (span * i) / steps, radius))

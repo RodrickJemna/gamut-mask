@@ -1,207 +1,202 @@
 /*
- * Layout only. Spec: section 6, F7.
+ * Layout only. Spec: section 6, F7. Colours come from index.css; no greys are
+ * hard-coded here.
  *
- * EVERYTHING BELOW IS STILL THE VITE SCAFFOLD — delete it with the first UI commit.
- *
- * IMPLEMENT: the two-column shell (wheel left, panel right), the square wheel box with
- * the canvas and SVG overlay stacked in it, and the 4-column sample grid below.
- *
- * Stacking the canvas and the overlay: put both in a `position: relative` square box and
- * make each `position: absolute; inset: 0`. CSS grid with both children in the same
- * cell also works; absolute positioning is less surprising when reading it later.
- *
- * `touch-action: none` on the overlay SVG, or a touch drag scrolls the page instead of
- * moving a vertex.
- *
- * A large neutral margin around the wheel is a functional requirement, not whitespace
- * taste (section 6, F7): surrounding colour shifts the perceived hue of the disk.
- *
- * Desktop only (section 7): no media queries, no breakpoints.
- *
- * Colours come from the custom properties in `index.css`. Do not hard-code greys here.
+ * Desktop only — mobile layout is a non-goal (section 7), so there are no media queries.
  */
 
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
-
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
+.app {
+  /*
+   * Dragging a vertex otherwise selects the anchor letters and the panel labels, which
+   * flashes highlight boxes across the wheel mid-gesture.
+   */
+  user-select: none;
+  display: grid;
+  grid-template-columns: minmax(340px, 1fr) 260px;
+  grid-template-areas:
+    "wheel panel"
+    "samples samples";
+  gap: var(--gap);
+  align-items: start;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--gap);
 }
 
-.hero {
+/*
+ * The square that holds the disk and its overlay. The generous neutral margin around the
+ * wheel is a functional requirement, not whitespace taste (section 6, F7): surrounding
+ * colour shifts the perceived hue of the disk.
+ */
+.wheel {
+  grid-area: wheel;
   position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
+  aspect-ratio: 1;
+  width: 100%;
 }
 
-#center {
+/*
+ * The overlay spans the full square; the canvas is inset because the six anchor LETTERS
+ * live outside the disk (D34), so the SVG's coordinate box is wider than the disk itself.
+ * The inset equals (1 - 1/VIEW_MARGIN) / 2 for the VIEW_MARGIN in MaskOverlay.tsx — keep
+ * the two in step.
+ */
+.wheel-disk {
+  position: absolute;
+  inset: 8.3333%;
+}
+
+.wheel-disk canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.wheel-overlay {
+  position: absolute;
+  inset: 0;
+  /* Without this a touch drag scrolls the page instead of moving a vertex. */
+  touch-action: none;
+}
+
+.panel {
+  grid-area: panel;
   display: flex;
   flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
+  gap: 20px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
-#next-steps {
+.panel section {
   display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
-  }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
-}
-
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
+  flex-direction: column;
   gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
 }
 
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
+.presets {
+  display: grid;
+  gap: 4px;
 }
 
-.ticks {
-  position: relative;
+.presets button {
+  padding: 7px 10px;
+  text-align: left;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.presets button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.presets button[aria-pressed="true"] {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+.presets button:disabled {
+  color: var(--text-dim);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.slider {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 8px;
+  align-items: center;
+}
+
+.slider > span:first-child {
+  color: var(--text-muted);
+}
+
+.slider > .value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.slider input {
+  grid-column: 1 / -1;
   width: 100%;
+  margin: 2px 0 0;
+  accent-color: var(--text);
+}
 
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
+.samples {
+  grid-area: samples;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
-  }
+.samples-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.samples-note {
+  color: var(--text-dim);
+}
+
+.samples-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.sample {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.sample:hover {
+  border-color: var(--border-strong);
+}
+
+/* Generous neutral padding around each swatch, for the same reason as the wheel margin. */
+.sample-swatch {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+.sample-hex {
+  /* The one string worth selecting by hand, so opt it back in. */
+  user-select: text;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.sample-nums {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+.empty {
+  padding: 12px;
+  color: var(--text-dim);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }

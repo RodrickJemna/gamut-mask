@@ -1,140 +1,79 @@
 /*
  * Global reset and the grey scale. Spec: F7, section 6, D26.
  *
- * EVERYTHING BELOW IS STILL THE VITE SCAFFOLD — delete it with the first UI commit.
+ * THE GREYS ARE FUNCTIONAL. The wheel is the only saturated thing on screen; everything
+ * around it is neutral so simultaneous contrast does not shift how the disk and the
+ * swatches are perceived. Consequences, all deliberate:
  *
- * IMPLEMENT: `:root` custom properties for the greys, base typography, and a minimal
- * reset. Every other stylesheet reads from here.
+ *   - every grey has EQUAL sRGB channels. A blue-tinted "cool grey", the usual design
+ *     habit, is a measurement error here.
+ *   - mid greys, not near-black and not near-white: dark chrome makes the disk look more
+ *     saturated than it is, light chrome washes it out.
+ *   - no coloured accent, no gradient, no shadow, no card styling (section 6).
  *
- * THE GREYS ARE FUNCTIONAL (F7, and CLAUDE.md says so explicitly). The wheel is the only
- * saturated thing on screen; everything around it is neutral so that simultaneous
- * contrast does not shift how the disk and the swatches are perceived. That means:
- *
- *   - no coloured accent, no gradient, no card shadows, no branding (section 6)
- *   - mid greys, not near-black and not near-white: a dark chrome makes the disk look
- *     more saturated than it is, a light one washes it out
- *   - the greys must be genuinely neutral — equal sRGB channels. A grey with a blue tint,
- *     the usual "cool grey" design habit, is a measurement error here
- *
- * Suggested set, to be tuned by eye once the disk renders: a page background, a slightly
- * lighter panel surface, a border, a primary and a muted text colour, and a focus ring.
- * Name them by role (`--surface`, `--text-muted`), not by shade, so retuning is one edit.
- *
- * `color-scheme: dark` if the chrome ends up on the dark side of mid, so native controls
- * (the range sliders) match. There is no light/dark toggle — one calibrated set of greys
- * is the point.
- *
- * UI language is English (D26).
+ * Named by role rather than by shade, so retuning by eye is one edit.
  */
 
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  color-scheme: dark;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --bg: #5a5a5a;
+  --surface: #666666;
+  --surface-raised: #737373;
+  --border: #808080;
+  --border-strong: #969696;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --text: #f2f2f2;
+  --text-muted: #d0d0d0;
+  --text-dim: #b0b0b0;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  --focus: #ffffff;
+
+  /* Mask overlay ink. Neutral so it reads against every hue underneath. */
+  --mask-line: #ffffff;
+  --mask-wash: #000000;
+  --mask-wash-opacity: 0.58;
+
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius: 3px;
+  --gap: 24px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+* {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 400 13px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
 h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
   margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+button {
+  font: inherit;
+  color: inherit;
 }

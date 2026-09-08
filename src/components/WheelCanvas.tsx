@@ -1,48 +1,75 @@
 /**
- * The colour wheel disk, drawn per pixel into a <canvas>. Spec: F1, D4, D30.
+ * The colour wheel disk, drawn per pixel into a canvas. Spec: F1, D4, D30.
  *
- * This component owns the DOM element and nothing else. All colour maths is in
- * `color/render.ts` and `color/wheel.ts`. It takes no mask props: the disk does not
- * depend on the mask (see the caching note below).
+ * Owns the element, its size and the blit; all colour maths lives in color/render.ts and
+ * color/wheel.ts. It takes no mask props, which is what makes the cache below correct: a
+ * mask edit cannot re-run the render because the render does not depend on the mask.
  *
- * IMPLEMENT
- *
- *   function WheelCanvas({ size }: { size: number }): JSX.Element
- *
- * WHY CANVAS HERE AND SVG ON TOP (D4). ~125k independent pixel colours is the one thing
- * SVG cannot express; a canvas ImageData writes them directly. Conversely, hit-testing
- * and dragging handles is trivial in SVG and miserable on a canvas. So the two are
- * stacked: this canvas underneath, `MaskOverlay` as a transparent SVG on top, both the
- * same square box in a CSS grid cell (same row, same column) or with the SVG absolutely
- * positioned over the canvas. WebGL was rejected — this is one computation per resize.
- *
- * HOW IT WORKS, in the order the code should read
- *
- *   1. `useRef<HTMLCanvasElement>` for the element.
- *   2. Get the device pixel ratio: `window.devicePixelRatio ?? 1`. On a retina Mac this
- *      is 2, so a 500 CSS-px canvas needs a 1000x1000 backing store or the disk looks
- *      soft. Set `canvas.width/height` (the backing store, in device px) to `size * dpr`
- *      and the CSS `width/height` to `size` px. These are two different things; setting
- *      only one is the usual cause of a blurry or mis-scaled canvas.
- *   3. In a `useEffect` keyed on `[size, dpr]`: call `renderDisk(size, dpr)`, then
- *      `ctx.putImageData(data, 0, 0)`. Use `getContext('2d')` and bail out if it is null.
- *   4. Nothing else. No draw on every render, no requestAnimationFrame loop.
- *
- * CACHING (F1: recompute only on resize). The effect's dependency array *is* the cache
- * key. Because the component takes no mask props, a mask edit cannot re-run it — which is
- * the actual requirement. Keep it that way: if this component ever needs to know about
- * the polygon, the wash belongs in the overlay instead, which is where D28 puts it.
- *
- * RESIZE. Where `size` comes from is a layout decision, not this component's business.
- * Simplest that satisfies the spec: the parent measures its square container with a
- * `ResizeObserver` and passes the side length down, debounced or rounded to whole pixels
- * so a 1px layout jitter does not trigger a full re-render of 125k pixels. Do not observe
- * the canvas itself — its size is driven by the prop, so that is a feedback loop.
- *
- * ACCESSIBILITY / SEMANTICS. `aria-hidden` is appropriate: the disk is a continuous field
- * with no discrete content, and the sample list below is the accessible representation of
- * what the user selected. Give the canvas a `role="img"` and a short label only if it
- * stops being purely decorative.
- *
- * No test file — CLAUDE.md: no UI tests.
+ * WHY CANVAS HERE, SVG ON TOP (D4): ~1M independent pixel colours is the one thing SVG
+ * cannot express, while hit-testing draggable handles is trivial in SVG and miserable on
+ * a canvas. So the two are stacked in the same square box.
  */
+
+import { useEffect, useRef, useState } from 'react'
+import { renderDisk } from '../color/render.ts'
+
+/**
+ * Resize settle delay. renderDisk costs ~140 ms at 1M pixels, so recomputing on every
+ * ResizeObserver callback would turn a window drag into a slideshow. F1 only asks for a
+ * recompute on resize, not on every resize event.
+ */
+const SETTLE_MS = 120
+
+export function WheelCanvas() {
+  const boxRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [size, setSize] = useState(0)
+
+  // Measure the wrapper, never the canvas. The canvas is CSS-sized to 100% of the
+  // wrapper, so observing it would feed its own backing-store changes back in.
+  useEffect(() => {
+    const box = boxRef.current
+    if (!box) return
+
+    let timer: number | undefined
+    let measured = false
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0
+      // Whole pixels only: sub-pixel layout jitter must not trigger a full recompute.
+      const next = Math.round(width)
+      if (!measured) {
+        // The settle delay exists to coalesce a resize DRAG. Applying it to the first
+        // measurement only delays first paint, and because the overlay's wash draws
+        // immediately over an unpainted canvas, that showed as a black disk for a
+        // moment on load.
+        measured = true
+        setSize(next)
+        return
+      }
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => setSize(next), SETTLE_MS)
+    })
+    observer.observe(box)
+    return () => {
+      window.clearTimeout(timer)
+      observer.disconnect()
+    }
+  }, [])
+
+  const dpr = window.devicePixelRatio || 1
+  const side = size > 0 ? Math.max(1, Math.round(size * dpr)) : 0
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || side <= 0) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.putImageData(renderDisk(size, dpr), 0, 0)
+  }, [size, dpr, side])
+
+  return (
+    <div className="wheel-disk" ref={boxRef}>
+      {side > 0 && <canvas ref={canvasRef} width={side} height={side} aria-hidden="true" />}
+    </div>
+  )
+}
