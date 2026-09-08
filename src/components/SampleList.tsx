@@ -22,18 +22,20 @@
  * The lightness column is a DERIVED consequence, not a control (D16): no L slider, no
  * value ramp, no sorting by lightness.
  *
- * PAINT MATCHING (D40) shows the nearest bottle in the AK catalogue, or "No paint found"
- * when the nearest is further than the 5% tolerance. The difference is shown either way,
- * because "nearest is 14% off" is more useful than a bare refusal — it tells you how far
- * outside real pigment the colour sits. Expect the rim to be mostly unmatched: no
- * pigment reaches sRGB primary saturation.
+ * PAINT MATCHING (D40, D44) lists the nearest bottle in EACH brand that is within the 5%
+ * tolerance — both when both qualify, one when one does, and "No paint found" when
+ * neither. The difference is shown either way, because "nearest is 14% off" is more
+ * useful than a bare refusal: it says how far outside real pigment the colour sits.
+ * Expect the rim to be mostly unmatched, since no pigment reaches sRGB primary
+ * saturation.
  */
 
 import { useMemo, useState } from 'react'
 import { lightnessLabel, saturationLabel, toHex } from '../color/format.ts'
 import { ANCHORS, wedgeIndexOf, wedgeOffsetOf } from '../color/wheel.ts'
 import type { Sample } from '../geom/sample.ts'
-import { differencePercent, isWithinTolerance, nearestPaint } from '../paints/match.ts'
+import { closestOverall, differencePercent, matchingPaints } from '../paints/match.ts'
+import { BRAND_TAG } from '../paints/types.ts'
 
 type Props = {
   samples: Sample[]
@@ -98,8 +100,8 @@ export function SampleList({ samples, requested }: Props) {
                       // for a different colour when the count changes, which shows as a
                       // swatch briefly displaying the wrong colour.
                       const key = `${hex}-${sample.x.toFixed(4)}-${sample.y.toFixed(4)}`
-                      const match = nearestPaint(sample.oklab)
-                      const close = isWithinTolerance(match)
+                      const matches = matchingPaints(sample.oklab)
+                      const closest = closestOverall(sample.oklab)
                       return (
                         <button
                           key={key}
@@ -107,8 +109,13 @@ export function SampleList({ samples, requested }: Props) {
                           className="sample"
                           onClick={() => void copy(hex)}
                           title={
-                            close
-                              ? `Copy hex — nearest paint ${match.paint.ref} ${match.paint.name} (${match.paint.range})`
+                            matches.length > 0
+                              ? matches
+                                  .map(
+                                    (m) =>
+                                      `${m.paint.brand} ${m.paint.ref} ${m.paint.name} (${m.paint.range})`,
+                                  )
+                                  .join('\n')
                               : 'Copy hex — no paint within 5%'
                           }
                         >
@@ -120,16 +127,30 @@ export function SampleList({ samples, requested }: Props) {
                             L {lightnessLabel(sample.oklab.L)} &middot; S{' '}
                             {saturationLabel(sample.t)}%
                           </span>
-                          {close ? (
-                            <span className="sample-paint">
-                              <span className="paint-ref">{match.paint.ref}</span>
-                              {match.paint.name}
-                            </span>
-                          ) : (
-                            <span className="sample-paint none">No paint found</span>
-                          )}
-                          <span className={close ? 'sample-delta' : 'sample-delta none'}>
-                            &Delta;{differencePercent(match.distance)}%
+                          <span className="sample-paints">
+                            {matches.length === 0 ? (
+                              <span className="sample-paint-row">
+                                <span className="sample-paint none">No paint found</span>
+                                <span className="sample-delta none">
+                                  &Delta;{differencePercent(closest.distance)}%
+                                </span>
+                              </span>
+                            ) : (
+                              matches.map((m) => (
+                                <span className="sample-paint-row" key={m.paint.brand}>
+                                  <span className="sample-paint">
+                                    <span className="paint-brand">
+                                      {BRAND_TAG[m.paint.brand]}
+                                    </span>
+                                    <span className="paint-ref">{m.paint.ref}</span>
+                                    {m.paint.name}
+                                  </span>
+                                  <span className="sample-delta">
+                                    &Delta;{differencePercent(m.distance)}%
+                                  </span>
+                                </span>
+                              ))
+                            )}
                           </span>
                         </button>
                       )

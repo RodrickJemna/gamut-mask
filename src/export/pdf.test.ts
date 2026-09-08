@@ -68,7 +68,7 @@ describe('buildPdf structure', () => {
     buildPdf({
       widthPt: 595,
       heightPt: 842,
-      operators: new Content(842).text(40, 40, 'Gamut Mask (ü)').build(),
+      pages: [{ operators: new Content(842).text(40, 40, 'Gamut Mask (ü)').build() }],
       title: 'Gamut Mask',
     })
 
@@ -128,6 +128,22 @@ describe('buildPdf structure', () => {
     expect(text).toContain('/Root 1 0 R')
   })
 
+  it('lays out multiple pages with correct kids and count', () => {
+    const page = (label: string) => ({
+      operators: new Content(842).text(40, 40, label).build(),
+    })
+    const text = decode(
+      buildPdf({ widthPt: 595, heightPt: 842, pages: [page('one'), page('two'), page('three')] }),
+    )
+    expect(text).toContain('/Count 3')
+    expect(text).toContain('/Kids [5 0 R 7 0 R 9 0 R]')
+    expect([...text.matchAll(/\/Type \/Page[^s]/g)]).toHaveLength(3)
+  })
+
+  it('rejects a document with no pages', () => {
+    expect(() => buildPdf({ widthPt: 10, heightPt: 10, pages: [] })).toThrow()
+  })
+
   it('declares WinAnsiEncoding on both fonts, matching how text is encoded', () => {
     const text = decode(simple())
     expect([...text.matchAll(/\/WinAnsiEncoding/g)]).toHaveLength(2)
@@ -138,18 +154,18 @@ describe('buildPdf structure', () => {
     const out = buildPdf({
       widthPt: 200,
       heightPt: 200,
-      operators: new Content(200).image(0, 0, 100, 100).build(),
+      pages: [{ operators: new Content(200).image(0, 0, 100, 100).build() }],
       image: { jpeg, width: 4, height: 4 },
     })
     const text = decode(out)
     expect(text).toContain('/Filter /DCTDecode')
     expect(text).toContain(`/Length ${jpeg.length}`)
-    expect(text).toContain('/XObject << /Im0 7 0 R >>')
+    expect(text).toContain('/XObject << /Im0 5 0 R >>')
   })
 
   it('keeps the content stream /Length equal to the actual stream bytes', () => {
     const ops = new Content(842).text(10, 20, 'x(ü)').rect(0, 0, 5, 5, '#ff0000').build()
-    const text = decode(buildPdf({ widthPt: 595, heightPt: 842, operators: ops }))
+    const text = decode(buildPdf({ widthPt: 595, heightPt: 842, pages: [{ operators: ops }] }))
     const declared = Number(/<< \/Length (\d+) >>\nstream\n/.exec(text)![1])
     expect(declared).toBe(ops.length)
   })

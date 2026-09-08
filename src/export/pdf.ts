@@ -82,59 +82,82 @@ export type PdfImage = {
 }
 
 export type PdfPage = {
-  widthPt: number
-  heightPt: number
   /** Content-stream operators. Build them with `Content`. */
   operators: Uint8Array
+}
+
+export type PdfDocument = {
+  widthPt: number
+  heightPt: number
+  /** One entry per page, in order. At least one is required. */
+  pages: PdfPage[]
+  /** Optional image, available to every page as /Im0. */
   image?: PdfImage
   title?: string
 }
 
 /**
- * Assembles a single-page document.
+ * Assembles a multi-page document.
  *
- * Object numbering is fixed: 1 catalog, 2 pages, 3 page, 4 contents, 5 Helvetica,
- * 6 Helvetica-Bold, 7 image (when present), 8 info (when a title is given).
+ * Multi-page because a single page is not enough: at 32 colours with two brands the
+ * sheet overflowed its footer, and the alternative — shrinking type and truncating paint
+ * names until it fit — trades away the thing the sheet is for. Object numbers are
+ * therefore computed rather than hard-coded:
+ *
+ *   1 catalog, 2 pages, 3 Helvetica, 4 Helvetica-Bold, then the image if present, then
+ *   a page object and a contents object per page, then the info dictionary if present.
  */
-export function buildPdf(page: PdfPage): Uint8Array {
+export function buildPdf(doc: PdfDocument): Uint8Array {
+  if (doc.pages.length === 0) throw new Error('A PDF needs at least one page')
+
+  const imageNumber = doc.image ? 5 : 0
+  const firstPageNumber = doc.image ? 6 : 5
+  // Page i occupies two objects: the page dictionary and its contents stream.
+  const pageNumber = (i: number) => firstPageNumber + i * 2
+  const contentsNumber = (i: number) => pageNumber(i) + 1
+  const infoNumber = firstPageNumber + doc.pages.length * 2
+
   const objects: Uint8Array[] = []
   const add = (body: Uint8Array | string) =>
     objects.push(typeof body === 'string' ? ascii(body) : body)
 
-  const hasImage = page.image !== undefined
-  const imageRef = hasImage ? ' /XObject << /Im0 7 0 R >>' : ''
-
-  add('<< /Type /Catalog /Pages 2 0 R >>')
-  add('<< /Type /Pages /Kids [3 0 R] /Count 1 >>')
-  add(
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${page.widthPt} ${page.heightPt}] ` +
-      `/Resources << /Font << /F1 5 0 R /F2 6 0 R >>${imageRef} >> /Contents 4 0 R >>`,
-  )
-  add(
-    concat([
-      ascii(`<< /Length ${page.operators.length} >>\nstream\n`),
-      page.operators,
-      ascii('\nendstream'),
-    ]),
-  )
+  const kids = doc.pages.map((_, i) => `${pageNumber(i)} 0 R`).join(' ')
+  add(`<< /Type /Catalog /Pages 2 0 R >>`)
+  add(`<< /Type /Pages /Kids [${kids}] /Count ${doc.pages.length} >>`)
   add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>')
   add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>')
-  if (page.image) {
+  if (doc.image) {
     add(
       concat([
         ascii(
-          `<< /Type /XObject /Subtype /Image /Width ${page.image.width} ` +
-            `/Height ${page.image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 ` +
-            `/Filter /DCTDecode /Length ${page.image.jpeg.length} >>\nstream\n`,
+          `<< /Type /XObject /Subtype /Image /Width ${doc.image.width} ` +
+            `/Height ${doc.image.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 ` +
+            `/Filter /DCTDecode /Length ${doc.image.jpeg.length} >>\nstream\n`,
         ),
-        page.image.jpeg,
+        doc.image.jpeg,
         ascii('\nendstream'),
       ]),
     )
   }
-  const infoNumber = hasImage ? 8 : 7
-  if (page.title) {
-    add(concat([ascii('<< /Title '), pdfString(page.title), ascii(' >>')]))
+
+  const imageRes = doc.image ? ` /XObject << /Im0 ${imageNumber} 0 R >>` : ''
+  doc.pages.forEach((page, i) => {
+    add(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${doc.widthPt} ${doc.heightPt}] ` +
+        `/Resources << /Font << /F1 3 0 R /F2 4 0 R >>${imageRes} >> ` +
+        `/Contents ${contentsNumber(i)} 0 R >>`,
+    )
+    add(
+      concat([
+        ascii(`<< /Length ${page.operators.length} >>\nstream\n`),
+        page.operators,
+        ascii('\nendstream'),
+      ]),
+    )
+  })
+
+  if (doc.title) {
+    add(concat([ascii('<< /Title '), pdfString(doc.title), ascii(' >>')]))
   }
 
   const chunks: Uint8Array[] = []
@@ -165,7 +188,7 @@ export function buildPdf(page: PdfPage): Uint8Array {
   push(
     ascii(
       `trailer\n<< /Size ${count} /Root 1 0 R` +
-        `${page.title ? ` /Info ${infoNumber} 0 R` : ''} >>\n` +
+        `${doc.title ? ` /Info ${infoNumber} 0 R` : ''} >>\n` +
         `startxref\n${xrefOffset}\n%%EOF\n`,
     ),
   )

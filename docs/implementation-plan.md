@@ -53,8 +53,11 @@ src/
     download.ts             hands the file to the browser
 
   paints/
-    catalogue.ts            647 AK paints, GENERATED — see scripts/       D40
-    match.ts                nearest paint in Oklab + 5% tolerance         D40
+    types.ts                Paint, Brand, brand badges                    D40, D44
+    ak.ts                   647 AK paints, GENERATED — see scripts/       D40
+    vallejo.ts              650 Vallejo paints, GENERATED                 D44
+    catalogue.ts            the two combined into one flat list
+    match.ts                nearest per brand in Oklab + 5% tolerance     D40, D44
     match.test.ts
 
   state/
@@ -192,11 +195,15 @@ All three questions that were open during the build are settled, in spec version
   Scale up to edit. The spec has no notion of handle density.
 - **Export lands in the browser's download folder**, not beside the HTML. No page can
   create a folder next to itself; see D43.
-- **Paint coverage is partial.** 647 paints come from the equivalence tables (3GEN plus
-  the AFV/FIG/AIR series) and the Real Colors grids. Not included: the pigment powders
-  (p56) and auxiliary products (p98), which are not bottled colour; and two paints whose
-  catalogue rows carry no swatch at all, AK11001 White and AK11191 Gold. Adding the
-  pigments is a two-line change to `scripts/extract-paints.py` if wanted.
+- **Paint coverage is partial, by brand.** AK: 647 from the equivalence tables (3GEN plus
+  the AFV/FIG/AIR series) and the Real Colors grids; excluded are the pigment powders and
+  auxiliary products, and two rows with no swatch at all (AK11001 White, AK11191 Gold).
+  Vallejo: 650 across Model Color, Model Air, Game Color, Game Air and Mecha Color;
+  excluded are the 73.xxx auxiliary line, varnishes and mediums, and the Metal / True
+  Metallic ranges, where a flat swatch misrepresents a metallic. 45 Vallejo codes on
+  chart pages have no swatch above them and are skipped.
+- **Together the two brands cover 73.4% of the disk** within 5%, against 63.0% for AK
+  alone. The unmatched remainder is the saturated rim, where no pigment reaches.
 - **Constants awaiting a calibrated eye.** `--mask-wash-opacity` (0.58) and the preset
   radii in `mask/presets.ts` were set by eye in a browser, not on a colour-managed
   display. They are named constants for exactly this reason.

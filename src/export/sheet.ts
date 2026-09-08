@@ -1,6 +1,6 @@
 /**
  * Composes the export sheet: the wheel, the mask settings, and the colours with their
- * paint matches. Spec: D43.
+ * paint matches. Spec: D43, D44.
  *
  * The wheel goes in as a bitmap because it is a per-pixel gradient (D30). Everything else
  * is real PDF text and vector rectangles, so the sheet prints crisply, the hex codes can
@@ -15,26 +15,28 @@ import { lightnessLabel, saturationLabel, toHex } from '../color/format.ts'
 import { ANCHORS, wedgeIndexOf, wedgeOffsetOf } from '../color/wheel.ts'
 import type { Sample } from '../geom/sample.ts'
 import {
+  closestOverall,
   differencePercent,
-  isWithinTolerance,
-  nearestPaint,
+  matchingPaints,
   MATCH_TOLERANCE_PERCENT,
 } from '../paints/match.ts'
+import { BRAND_TAG } from '../paints/types.ts'
 import { buildPdf, Content, textWidth, type PdfImage } from './pdf.ts'
 
 // A4 portrait.
 const PAGE_W = 595.28
 const PAGE_H = 841.89
 const MARGIN = 40
+/** Content must stay above this; crossing it starts a new page. */
+const FOOTER_TOP = PAGE_H - MARGIN - 22
 
 const WHEEL_SIZE = 220
 /**
- * Height of one colour entry. Each entry is TWO lines — colour on the first, paint on the
- * second — for the same reason the on-screen card is: laid out on one line, the paint
- * name gets about 37pt in a two-column grid, which truncates it to roughly eight
- * characters. On its own line it gets the full column and nothing truncates.
+ * Height of one colour entry: the colour line plus up to two paint lines, one per brand
+ * (D44). Paints get their own lines because laid out beside the colour they truncate to
+ * roughly eight characters, and an unreadable paint name defeats the point of matching.
  */
-const ENTRY_H = 21
+const ENTRY_H = 30
 const SWATCH = 13
 
 const TEXT = '#111111'
@@ -65,14 +67,52 @@ function fit(value: string, maxWidth: number, size: number): string {
 
 export function buildSheet(input: SheetInput): Uint8Array {
   const { image, samples, polygon, preset, rotation, size, requested } = input
-  const c = new Content(PAGE_H)
 
-  let y = MARGIN + 12
-  c.text(MARGIN, y, 'Gamut Mask', { size: 17, bold: true, hex: TEXT })
+  /**
+   * Pages are emitted as the layout runs, and a new one begins whenever the next block
+   * would cross the footer. Paginating rather than shrinking to fit: at 32 colours with
+   * two brands the content genuinely does not fit on one page, and the alternative was
+   * truncating the paint names the sheet exists to carry.
+   */
+  const pages: Content[] = []
+  let c = new Content(PAGE_H)
+  let y = 0
+
+  const footer = () => {
+    c.line(MARGIN, FOOTER_TOP + 8, PAGE_W - MARGIN, FOOTER_TOP + 8, RULE, 0.5)
+    c.text(
+      MARGIN,
+      FOOTER_TOP + 18,
+      'Assumes sRGB. On an uncalibrated monitor this plans relative harmony; '
+        + 'it does not predict absolute paint colour.',
+      { size: 7, hex: DIM },
+    )
+  }
+
   const stamp = new Date().toLocaleString()
-  c.text(PAGE_W - MARGIN - textWidth(stamp, 8), y, stamp, { size: 8, hex: DIM })
-  y += 10
-  c.line(MARGIN, y, PAGE_W - MARGIN, y, RULE, 0.8)
+  const heading = (continued: boolean) => {
+    y = MARGIN + 12
+    c.text(MARGIN, y, continued ? 'Gamut Mask (continued)' : 'Gamut Mask', {
+      size: continued ? 12 : 17,
+      bold: true,
+      hex: TEXT,
+    })
+    c.text(PAGE_W - MARGIN - textWidth(stamp, 8), y, stamp, { size: 8, hex: DIM })
+    y += 10
+    c.line(MARGIN, y, PAGE_W - MARGIN, y, RULE, 0.8)
+  }
+
+  /** Starts a new page when `needed` points would not fit above the footer. */
+  const ensure = (needed: number) => {
+    if (y + needed <= FOOTER_TOP) return
+    footer()
+    pages.push(c)
+    c = new Content(PAGE_H)
+    heading(true)
+    y += 18
+  }
+
+  heading(false)
 
   // Wheel on the left, mask settings to its right.
   const wheelTop = y + 16
@@ -86,9 +126,12 @@ export function buildSheet(input: SheetInput): Uint8Array {
     ['Preset', preset ? preset : 'Hand-drawn'],
     ['Rotation', `${Math.round(rotation)}°`],
     ['Size', `${Math.round(size * 100)}%`],
-    ['Colours', samples.length < requested
-      ? `${samples.length} of ${requested} requested`
-      : String(samples.length)],
+    [
+      'Colours',
+      samples.length < requested
+        ? `${samples.length} of ${requested} requested`
+        : String(samples.length),
+    ],
     ['Vertices', String(polygon.length)],
   ]
   for (const [label, value] of rows) {
@@ -101,8 +144,8 @@ export function buildSheet(input: SheetInput): Uint8Array {
   c.text(infoX, infoY, 'PAINT MATCHING', { size: 8, bold: true, hex: MUTED })
   infoY += 14
   for (const line of [
-    `Nearest AK paint within ${MATCH_TOLERANCE_PERCENT}% in Oklab.`,
-    'Beyond that, no paint is listed.',
+    'Nearest AK and Vallejo paint within',
+    `${MATCH_TOLERANCE_PERCENT}% in Oklab. Beyond that, none.`,
     'Catalogue swatch colours, not measured',
     'paint — a starting point, not a reading.',
   ]) {
@@ -116,12 +159,6 @@ export function buildSheet(input: SheetInput): Uint8Array {
   for (const s of samples) buckets[wedgeIndexOf(s.theta)].push(s)
   for (const b of buckets) b.sort((p, q) => wedgeOffsetOf(p.theta) - wedgeOffsetOf(q.theta))
 
-  /**
-   * Two columns normally, three when the palette is large. At 32 colours two columns run
-   * past the footer — verified by rendering the page, not by arithmetic — and three fits
-   * the maximum N with room to spare. Below the threshold two columns are preferred
-   * because they leave paint names more room.
-   */
   const cols = samples.length > 24 ? 3 : 2
   const GUTTER = 16
   const colW = (PAGE_W - MARGIN * 2 - GUTTER * (cols - 1)) / cols
@@ -130,6 +167,8 @@ export function buildSheet(input: SheetInput): Uint8Array {
     const bucket = buckets[w]
     if (bucket.length === 0) continue
 
+    // Keep a heading with at least its first row of entries.
+    ensure(18 + ENTRY_H)
     c.text(MARGIN, y, `${ANCHORS[w].letter}  ${ANCHORS[w].name.toUpperCase()}`, {
       size: 8,
       bold: true,
@@ -140,53 +179,62 @@ export function buildSheet(input: SheetInput): Uint8Array {
     c.line(MARGIN, y, PAGE_W - MARGIN, y, RULE, 0.5)
     y += 14
 
-    bucket.forEach((sample, i) => {
-      const col = i % cols
-      const x = MARGIN + col * (colW + GUTTER)
-      const top = y + Math.floor(i / cols) * ENTRY_H
-
-      const hex = toHex(sample.rgb8)
-      c.rect(x, top - SWATCH + 2, SWATCH, SWATCH, hex)
-      c.strokeRect(x, top - SWATCH + 2, SWATCH, SWATCH, RULE, 0.4)
-
-      const textX = x + SWATCH + 6
-      c.text(textX, top, hex, { size: 8.5, hex: TEXT })
-      const nums = `L ${lightnessLabel(sample.oklab.L)}   S ${saturationLabel(sample.t)}%`
-      c.text(x + colW - 20 - textWidth(nums, 7.5), top, nums, { size: 7.5, hex: DIM })
-
-      const match = nearestPaint(sample.oklab)
-      const delta = `${differencePercent(match.distance)}%`
-      const deltaX = x + colW - 20 - textWidth(delta, 7.5)
-      if (isWithinTolerance(match)) {
-        c.text(textX, top + 9, match.paint.ref, { size: 7.5, bold: true, hex: TEXT })
-        const nameX = textX + 40
-        c.text(nameX, top + 9, fit(match.paint.name, deltaX - nameX - 6, 7.5), {
-          size: 7.5,
-          hex: MUTED,
-        })
-      } else {
-        c.text(textX, top + 9, 'No paint found', { size: 7.5, hex: DIM })
+    // Entries flow row by row, so a long wedge can break across pages.
+    for (let row = 0; row * cols < bucket.length; row++) {
+      ensure(ENTRY_H)
+      const top = y
+      for (let col = 0; col < cols; col++) {
+        const sample = bucket[row * cols + col]
+        if (!sample) break
+        drawEntry(c, sample, MARGIN + col * (colW + GUTTER), top, colW)
       }
-      c.text(deltaX, top + 9, delta, { size: 7.5, hex: DIM })
-    })
-
-    y += Math.ceil(bucket.length / cols) * ENTRY_H + 10
+      y += ENTRY_H
+    }
+    y += 10
   }
 
-  c.line(MARGIN, PAGE_H - MARGIN - 14, PAGE_W - MARGIN, PAGE_H - MARGIN - 14, RULE, 0.5)
-  c.text(
-    MARGIN,
-    PAGE_H - MARGIN - 4,
-    'Assumes sRGB. On an uncalibrated monitor this plans relative harmony; '
-      + 'it does not predict absolute paint colour.',
-    { size: 7, hex: DIM },
-  )
+  footer()
+  pages.push(c)
 
   return buildPdf({
     widthPt: PAGE_W,
     heightPt: PAGE_H,
-    operators: c.build(),
+    pages: pages.map((page) => ({ operators: page.build() })),
     image,
     title: 'Gamut Mask',
+  })
+}
+
+/** One colour: its swatch and readings, then a line per matched brand (D44). */
+function drawEntry(c: Content, sample: Sample, x: number, top: number, colW: number): void {
+  const hex = toHex(sample.rgb8)
+  c.rect(x, top - SWATCH + 2, SWATCH, SWATCH, hex)
+  c.strokeRect(x, top - SWATCH + 2, SWATCH, SWATCH, RULE, 0.4)
+
+  const textX = x + SWATCH + 6
+  c.text(textX, top, hex, { size: 8.5, hex: TEXT })
+  const nums = `L ${lightnessLabel(sample.oklab.L)}   S ${saturationLabel(sample.t)}%`
+  c.text(x + colW - 20 - textWidth(nums, 7.5), top, nums, { size: 7.5, hex: DIM })
+
+  const matches = matchingPaints(sample.oklab)
+  if (matches.length === 0) {
+    const closest = closestOverall(sample.oklab)
+    const delta = `${differencePercent(closest.distance)}%`
+    c.text(textX, top + 9, 'No paint found', { size: 7.5, hex: DIM })
+    c.text(x + colW - 20 - textWidth(delta, 7.5), top + 9, delta, { size: 7.5, hex: DIM })
+    return
+  }
+  matches.forEach((m, row) => {
+    const lineY = top + 9 + row * 9
+    const delta = `${differencePercent(m.distance)}%`
+    const deltaX = x + colW - 20 - textWidth(delta, 7.5)
+    c.text(textX, lineY, BRAND_TAG[m.paint.brand], { size: 6.5, bold: true, hex: DIM })
+    c.text(textX + 16, lineY, m.paint.ref, { size: 7.5, bold: true, hex: TEXT })
+    const nameX = textX + 16 + 42
+    c.text(nameX, lineY, fit(m.paint.name, deltaX - nameX - 6, 7.5), {
+      size: 7.5,
+      hex: MUTED,
+    })
+    c.text(deltaX, lineY, delta, { size: 7.5, hex: DIM })
   })
 }

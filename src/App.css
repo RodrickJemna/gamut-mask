@@ -246,12 +246,13 @@
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) auto;
   /*
-   * The paint name spans the swatch and hex columns, because it is the longest string in
-   * the card and the only one worth reading in full.
+   * The paint lines span the whole card, because a paint name is the longest string in it
+   * and the only one worth reading in full. There may be one line, two (D44 — one per
+   * brand), or a single "No paint found".
    */
   grid-template-areas:
-    "swatch hex   nums"
-    "paint  paint delta";
+    "swatch hex    nums"
+    "paints paints paints";
   gap: 0 8px;
   align-items: center;
   /* Tight on purpose: card height is what decides whether the whole list fits on screen. */
@@ -294,9 +295,23 @@
   white-space: nowrap;
 }
 
-/* The nearest paint (D40). Ellipsised — the full name and range are in the row title. */
+.sample-paints {
+  grid-area: paints;
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+/* One row per matched brand. Delta right-aligned, name taking whatever is left. */
+.sample-paint-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+}
+
+/* The matched paint (D40, D44). Ellipsised — the full name and range are in the title. */
 .sample-paint {
-  grid-area: paint;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -310,13 +325,26 @@
   color: var(--text);
 }
 
+/* Brand badge, so two rows are distinguishable at a glance. */
+.paint-brand {
+  display: inline-block;
+  min-width: 20px;
+  margin-right: 5px;
+  padding: 0 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-align: center;
+  color: var(--bg);
+  background: var(--text-muted);
+  border-radius: 2px;
+}
+
 .sample-paint.none {
   color: var(--text-dim);
   font-style: italic;
 }
 
 .sample-delta {
-  grid-area: delta;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   text-align: right;

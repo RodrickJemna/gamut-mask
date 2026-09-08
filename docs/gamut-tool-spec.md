@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.14
+Verzió: 0.15
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -132,6 +132,30 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D44 — Két gyártó, brandenként külön illesztés**: minden mintához az AK **és** a
+  Vallejo katalógusból is a legközelebbi festék, és a lista azt sorolja fel, amelyik az
+  5%-os toleranciába esik — mindkettőt, ha mindkettő, egyet, ha csak egy, és
+  „No paint found", ha egyik sem.
+  - **Miért brandenként, nem globálisan**: egy globális legközelebbi elrejtené, hogy a
+    másik gyártónál is van használható tégely — pont ez a két katalógus értelme.
+  - **Fedettség, mérve**: az AK egyedül a diszk 63,0%-át fedi 5%-on belül, a Vallejo
+    69,8%-át, együtt **73,4%**-ot; a diszk 59,4%-án mindkettőnél van találat. A maradék
+    26,6% továbbra is a perem, ahol valódi pigment nem ér el.
+  - **650 Vallejo szín**: Model Color, Model Air, Game Color, Game Air, Mecha Color.
+  - **A színek raszterizált lapról vannak mintavételezve, nem a rect fill-jéből.** Egyes
+    lapokon a swatch fill rendes RGB-hármas, máshol — a 13. lapon 106-ból 86 esetben —
+    egyetlen float, mert a rect olyan színtérben van festve, amit a pdfplumber nem old
+    fel, és egy komponenst ad vissza. Erre hagyatkozva a „71.002 Medium Yellow"
+    `#000000` lett. **A módszer validálva**: a 12. lapon, ahol minden fill rendes
+    RGB-hármas, a mintavételezett pixelek mind a 121 deklarált színt **0 csatorna-hibával**
+    reprodukálták.
+  - **A range a kódprefixből jön** (69/70/71/72/76), nem abból, melyik lapon találtuk: a
+    chart-lapok más range-ekre is hivatkoznak (a Game Air lapon 51 saját kód mellett 7
+    Model Color kód van), lap szerint címkézve ezek hibás range-et kaptak volna. A
+    73.xxx (pigmentek, washok, textúrák) kizárva, ahogy az AK-nál is.
+  - **Kizárva**: lakkok és médiumok (17 ref), amiknek a swatch-e üres fehér — bennehagyva
+    bármelyik közel-fehér minta a „Matt Varnish"-ra illeszkedett volna. A 70.951 White
+    viszont valódi festék, marad.
 - **D43 — PDF-lap export (a D13 részleges visszavonása)**: egy gomb legenerálja az
   aktuális állapot nyomtatható A4-es lapját — a kör a maskkal, a mask beállításai, és a
   maskon belüli színek a festék-találatokkal.
@@ -320,3 +344,5 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
 - 0.14 — **PDF-lap export (D43)**, a D13 részlegesen visszavonva. Saját PDF-író, nulla
   dependency; a lap pypdf-fel strict módban validálva és renderelve ellenőrizve.
   Mellékhatásként 35 elrontott festéknév javítva a katalógus-kinyerésben.
+- 0.15 — **második gyártó (D44)**: 650 Vallejo szín, brandenként külön illesztés. A PDF-író
+  többoldalassá tett, mert két brand sorával 32 színnél a tartalom nem fér egy lapra.

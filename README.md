@@ -16,8 +16,8 @@ Reference: James Gurney, *Color and Light* — gamut masking.
 - Rotate and scale the mask about the wheel centre
 - Lists the colours inside the mask, grouped by wheel wedge, with hex, lightness and
   saturation; click to copy
-- Matches each colour to the nearest bottle in the AK Interactive catalogue (647 paints),
-  or says so plainly when nothing is within 5%
+- Matches each colour against two brands — AK Interactive (647 paints) and Vallejo
+  (650) — listing whichever are within 5%, or saying so plainly when neither is
 - Drag inside the mask to move it; drag handles to reshape it
 - Saves a printable A4 PDF sheet of the current wheel, mask and palette
 
@@ -56,17 +56,25 @@ defensible where nearest-in-sRGB would not be. Beyond 5% difference (100% being 
 Oklab distance of 1) the row says "No paint found" but still shows the colour and how
 far off the nearest bottle was.
 
+**Brands are matched independently**, so a colour can match AK, Vallejo, both or
+neither, and the row lists whichever qualify. Collapsing to one global nearest would
+hide the fact that the other brand also has something usable.
+
 Expect the saturated rim to be mostly unmatched. Real pigment does not reach sRGB
-primary saturation: across the disk, 100% of near-neutral colours find a paint within
-5% and only 27% of rim colours do.
+primary saturation. Measured over the disk: AK alone covers 63.0% within 5%, Vallejo
+69.8%, the two together 73.4%, and 59.4% of the disk matches both.
 
 **What the paint colours are**: the swatches printed in the manufacturer's catalogue —
 their own renderings, not spectrophotometer readings of dried paint. Combined with D10
 (the pipeline assumes sRGB and does not predict absolute paint colour), a match means
 "this bottle is in the right region", not "this bottle is this colour".
 
-Regenerate the catalogue with `scripts/extract-paints.py`, which needs `pdfplumber` and
-`pypdf` in a virtualenv. It is build-time only; nothing in the app imports them.
+Regenerate the catalogues with `scripts/extract-paints.py` (AK) and
+`scripts/extract-vallejo.py` (Vallejo), then `scripts/generate-catalogue.py`. They need
+`pdfplumber`, `pypdf` and `pillow` in a virtualenv, and the Vallejo one also uses macOS
+Quick Look to rasterise pages — its swatch colours are sampled from rendered pixels,
+because on some pages the vector fill cannot be resolved to RGB. All build-time only;
+nothing in the app imports any of it.
 
 ## The PDF sheet
 
