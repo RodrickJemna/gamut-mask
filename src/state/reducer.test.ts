@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { polar, radiusOf } from '../color/wheel.ts'
+import { centroid } from '../geom/polygon.ts'
 import { buildPreset } from '../mask/presets.ts'
 import {
   MAX_SAMPLES,
@@ -312,6 +313,70 @@ describe('mask body drag (D42)', () => {
     const shown = displayPolygon(next)[0]
     expect(shown.x).toBeCloseTo(target.x, 9)
     expect(shown.y).toBeCloseTo(target.y, 9)
+  })
+
+  /**
+   * Regression for a reported bug, and for a hole in this suite.
+   *
+   * The offset used to be applied BEFORE the scale, so the displayed displacement was
+   * `size x offset`. With the offset clamped to the unit disk, a shrunken mask could only
+   * be dragged proportionally less far: at size 0.1 its centre reached radius 0.068 and
+   * the rim was simply unreachable.
+   *
+   * The existing "tracks the pointer" test did not catch it because it used a delta small
+   * enough never to reach the clamp, where the divide-then-multiply cancelled out
+   * exactly. What was missing was a test of REACH, not of tracking.
+   */
+  it('can position the mask anywhere on the disk, at any size', () => {
+    const reach = (size: number) => {
+      let st = reducer(small, { type: 'setSize', factor: size })
+      st = reducer(st, {
+        type: 'dragMask',
+        deltaDisplay: { x: 5, y: 0 },
+        offsetAtStart: { x: 0, y: 0 },
+      })
+      const c = centroid(displayPolygon(st))
+      return radiusOf(c.x, c.y)
+    }
+    // A small mask must be placeable right out at the rim.
+    for (const size of [0.5, 0.3, 0.1]) {
+      expect(reach(size)).toBeGreaterThan(0.8)
+    }
+    // And reach must not shrink as the mask shrinks — that was the bug exactly.
+    expect(reach(0.1)).toBeGreaterThanOrEqual(reach(0.5) - 1e-9)
+    expect(reach(0.5)).toBeGreaterThanOrEqual(reach(1) - 1e-9)
+  })
+
+  /**
+   * The property the new ordering buys: the offset is no longer scaled, so changing size
+   * resizes the mask in place instead of dragging it back toward the centre.
+   */
+  it('keeps a positioned mask where it is when the size changes', () => {
+    const placed = reducer(small, {
+      type: 'dragMask',
+      deltaDisplay: { x: 0.5, y: -0.3 },
+      offsetAtStart: { x: 0, y: 0 },
+    })
+    const before = centroid(displayPolygon(placed))
+    for (const size of [0.5, 0.2, 0.9]) {
+      const resized = reducer(placed, { type: 'setSize', factor: size })
+      const after = centroid(displayPolygon(resized))
+      expect(after.x).toBeCloseTo(before.x, 6)
+      expect(after.y).toBeCloseTo(before.y, 6)
+    }
+  })
+
+  it('still carries an off-centre mask around the wheel when rotated (D42)', () => {
+    const placed = reducer(small, {
+      type: 'dragMask',
+      deltaDisplay: { x: 0.6, y: 0 },
+      offsetAtStart: { x: 0, y: 0 },
+    })
+    const at0 = centroid(displayPolygon(placed))
+    const spun = centroid(displayPolygon(reducer(placed, { type: 'setRotation', deg: 90 })))
+    // Same distance from the centre, rotated a quarter turn — not spinning in place.
+    expect(radiusOf(spun.x, spun.y)).toBeCloseTo(radiusOf(at0.x, at0.y), 6)
+    expect(Math.hypot(spun.x - at0.x, spun.y - at0.y)).toBeGreaterThan(0.3)
   })
 
   it('resets when a preset is loaded', () => {

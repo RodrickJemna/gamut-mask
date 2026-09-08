@@ -33,16 +33,27 @@ export const initialState: AppState = {
 const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v))
 
 /**
- * The mask as drawn: rotation then size, both about the wheel centre (F5).
+ * The mask as drawn: scale, then position, then rotation.
  *
- * Takes only the three fields it needs rather than the whole AppState, so the caller can
+ * ORDER MATTERS, and an earlier version had it wrong. It applied the offset BEFORE the
+ * scale — `size * R(base + offset)` — so the displayed displacement was `size x offset`.
+ * With the offset clamped to the unit disk, that meant a shrunken mask could only be
+ * dragged a proportionally shorter way: at size 0.1 its centre reached radius 0.068 and
+ * the rim was unreachable.
+ *
+ * Now `R(size * base + offset)`: the offset is applied after the scale, so how far the
+ * mask can be moved no longer depends on how big it is. It stays INSIDE the rotation, so
+ * rotating still carries an off-centre mask around the wheel rather than spinning it in
+ * place (D42).
+ *
+ * Takes only the fields it needs rather than the whole AppState, so the caller can
  * memoise on exactly those and not recompute when an unrelated field like `dragging`
  * changes. AppState satisfies this structurally.
  */
 export function displayPolygon(
   mask: Pick<AppState, 'basePolygon' | 'offset' | 'rotation' | 'size'>,
 ): Point[] {
-  return scale(rotate(translate(mask.basePolygon, mask.offset), mask.rotation), mask.size)
+  return rotate(translate(scale(mask.basePolygon, mask.size), mask.offset), mask.rotation)
 }
 
 /**
@@ -58,28 +69,45 @@ export function displayPolygon(
  * radius is gone and no inverse can recover it — which is exactly why rotation and size
  * are kept as scalars instead of being baked into the vertices.
  */
-export function toBasePoint(p: Point, state: AppState): Point {
-  const size = state.size === 0 ? MIN_SIZE : state.size
-  const unscaled = { x: p.x / size, y: p.y / size }
-  const r = radiusOf(unscaled.x, unscaled.y)
-  const unrotated =
-    r === 0 ? unscaled : polar(angleOf(unscaled.x, unscaled.y) - state.rotation, r)
-  // Undo the offset last, mirroring displayPolygon applying it first.
-  return clampToDisk({ x: unrotated.x - state.offset.x, y: unrotated.y - state.offset.y })
+/** Undoes the rotation only. Shared by the point and vector inverses. */
+function unrotate(p: Point, rotation: number): Point {
+  const r = radiusOf(p.x, p.y)
+  if (r === 0) return p
+  return polar(angleOf(p.x, p.y) - rotation, r)
 }
 
 /**
- * A display-space vector expressed in base space: undo the scale, then the rotation.
+ * Inverse of the display transform, for turning a dragged pointer position back into a
+ * base-space vertex.
+ *
+ * Mirrors `displayPolygon` in reverse: undo the rotation, subtract the offset, undo the
+ * scale.
+ *
+ * Exact only where the forward transform did not clamp. Once a vertex is stuck on the rim
+ * (D22) its original radius is gone and no inverse can recover it — which is exactly why
+ * rotation, size and offset are kept as scalars instead of baked into the vertices.
+ */
+export function toBasePoint(p: Point, state: AppState): Point {
+  const size = state.size === 0 ? MIN_SIZE : state.size
+  const unrotated = unrotate(p, state.rotation)
+  return clampToDisk({
+    x: (unrotated.x - state.offset.x) / size,
+    y: (unrotated.y - state.offset.y) / size,
+  })
+}
+
+/**
+ * A display-space vector expressed in the offset's own frame: undo the rotation, and
+ * nothing else.
+ *
+ * NOT divided by size, because the offset is applied after the scale. Dividing was the
+ * bug that made a small mask undraggable to the rim.
  *
  * A vector, not a point — no offset is subtracted, because translating a difference does
- * not change it. Used by the body drag.
+ * not change it.
  */
-function toBaseVector(v: Point, state: AppState): Point {
-  const size = state.size === 0 ? MIN_SIZE : state.size
-  const unscaled = { x: v.x / size, y: v.y / size }
-  const r = radiusOf(unscaled.x, unscaled.y)
-  if (r === 0) return unscaled
-  return polar(angleOf(unscaled.x, unscaled.y) - state.rotation, r)
+function toOffsetVector(v: Point, state: AppState): Point {
+  return unrotate(v, state.rotation)
 }
 
 const samePoint = (a: Point, b: Point): boolean => a.x === b.x && a.y === b.y
@@ -146,7 +174,7 @@ export function reducer(state: AppState, action: Action): AppState {
      * edge and drags back.
      */
     case 'dragMask': {
-      const delta = toBaseVector(action.deltaDisplay, state)
+      const delta = toOffsetVector(action.deltaDisplay, state)
       const next = clampToDisk({
         x: action.offsetAtStart.x + delta.x,
         y: action.offsetAtStart.y + delta.y,

@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.17
+Verzió: 0.18
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -217,10 +217,22 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
     kifut a lábléc alá. Ez renderelt lapon lett ellenőrizve, nem számolással.
 - **D42 — A mask mozgatása húzással**: a maskon *belül* húzva az egész mask elmozdul a
   körön. A vertexeken és az éleken való húzás/kattintás változatlan.
-  - **Hol tárolódik**: `offset: Point` az állapotban, base-térben, **a rotáció és a
-    skálázás előtt** alkalmazva. Így a rotálás továbbra is *körbeviszi* az elcsúsztatott
-    maskot a körön, nem a helyben forgatja — ez a természetes olvasat, és egyben az, amit
-    a D38 (atmoszférikus preset) is feltételez.
+  - **Hol tárolódik**: `offset: Point` az állapotban. A sorrend: **skálázás, majd offset,
+    majd rotáció** — `R(size * base + offset)`. Az offset a *skálázás után* jön, tehát
+    hogy milyen messzire mozgatható a mask, nem függ attól, mekkora. A rotáción viszont
+    *belül* van, így a rotálás továbbra is **körbeviszi** az elcsúsztatott maskot a körön,
+    nem a helyben forgatja — ez a természetes olvasat, és amit a D38 (atmoszférikus
+    preset) is feltételez.
+  - **Javított hiba (0.18)**: eredetileg az offset a skálázás *előtt* volt alkalmazva
+    (`size * R(base + offset)`), tehát a kijelzett elmozdulás `size × offset` volt. Mivel
+    az offset a diszkre van clampelve, egy lekicsinyített mask arányosan rövidebb utat
+    tudott megtenni: `size = 0.1`-nél a középpontja `0.068`-as rádiuszig ért el, a peremet
+    egyszerűen nem lehetett elérni. A tesztek ezt nem fogták meg, mert a meglévő
+    „követi a kurzort" teszt olyan kis deltát használt, ami sosem érte el a clampet — ott
+    az osztás és a szorzás pontosan kiejtette egymást. Ami hiányzott, az az **elérhetőség**
+    tesztje, nem a követésé.
+  - **Amit a sorrend hoz**: a size változtatása a maskot *helyben* méretezi, nem húzza
+    vissza a közép felé.
   - **Miért skalár, nem a vertexekbe beégetve**: ugyanaz az érv, mint a rotációnál és a
     méretnél. A D22 clamp lossy: a peremre húzott mask vertexei odaragadnak, és ha ezt a
     tárolt polygon szenvedné el, a visszahúzás nem állítaná helyre az alakot. Mérve:
@@ -385,3 +397,5 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   A panel tömörítve, hogy a második export-gomb után a D10-es caveat 1280×720-on is
   látszódjon.
 - 0.17 — **hover-kiemelés (D46)**: a listáról a körre. Additív, semmit nem von vissza.
+- 0.18 — **hibajavítás (D42)**: az offset a skálázás után alkalmazva, így egy kicsi mask is
+  a peremig mozgatható. Regressziós teszt az elérhetőségre, nem csak a követésre.
