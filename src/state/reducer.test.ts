@@ -49,10 +49,47 @@ describe('display / base round trip', () => {
     }
   })
 
-  it('keeps unmapped points inside the disk (D22)', () => {
-    const state = withState({ rotation: 45, size: 0.1 })
-    const back = toBasePoint({ x: 0.9, y: 0.9 }, state)
-    expect(radiusOf(back.x, back.y)).toBeLessThanOrEqual(1 + 1e-12)
+  /**
+   * D22 constrains what the user SEES, not the stored coordinate. Clamping the base
+   * instead confined a vertex drag to a disk of radius `size` around the offset: at size
+   * 50% a vertex could only be dragged half way across the wheel, and with the mask also
+   * moved the limit went asymmetric — 0.10 in one direction.
+   */
+  it('lets a vertex be dragged anywhere on the disk, at any size, offset and rotation', () => {
+    const targets = [
+      { x: -1, y: 0 }, { x: 0, y: 0.95 }, { x: 0.95, y: 0 }, { x: -0.6, y: -0.6 },
+    ]
+    for (const rotation of [0, 90, 214]) {
+      for (const size of [1, 0.5, 0.3, 0.06]) {
+        for (const offset of [{ x: 0, y: 0 }, { x: 0.5, y: 0 }, { x: -0.3, y: 0.4 }]) {
+          const state = withState({ rotation, size, offset })
+          for (const target of targets) {
+            const next = reducer(state, { type: 'moveVertex', index: 0, to: target })
+            const shown = displayPolygon(next)[0]
+            expect(shown.x).toBeCloseTo(target.x, 6)
+            expect(shown.y).toBeCloseTo(target.y, 6)
+          }
+        }
+      }
+    }
+  })
+
+  it('still keeps every DRAWN vertex inside the disk (D22)', () => {
+    const state = withState({ rotation: 45, size: 0.1, offset: { x: 0.4, y: 0.2 } })
+    const next = reducer(state, { type: 'moveVertex', index: 0, to: { x: 4, y: 4 } })
+    for (const p of displayPolygon(next)) {
+      expect(radiusOf(p.x, p.y)).toBeLessThanOrEqual(1 + 1e-9)
+    }
+  })
+
+  it('scaling a mask up past the rim is lossy, which is why size is a scalar', () => {
+    // The information is lost by the pipeline's final clamp, not by the transforms.
+    const big = withState({ basePolygon: [polar(0, 0.9), polar(120, 0.9), polar(240, 0.9)] })
+    const grown = displayPolygon({ ...big, size: 1 })
+    const clamped = displayPolygon({ ...big, size: 2 })
+    expect(clamped.every((p) => radiusOf(p.x, p.y) <= 1 + 1e-9)).toBe(true)
+    expect(Math.max(...clamped.map((p, i) => Math.hypot(p.x - grown[i].x, p.y - grown[i].y))))
+      .toBeGreaterThan(0.05)
   })
 })
 

@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.20
+Verzió: 0.21
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -87,6 +87,21 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   körön kívül.
 - **D22 — Vertex-clamp**: a polygon vertexei nem mehetnek a diszk peremén túl, a
   határra ragadnak. Rotálásnál is.
+  - **Amit pontosan megkötünk (0.21-ben tisztázva)**: a **kirajzolt** vertex marad a
+    diszken belül, nem a *tárolt* koordináta. A base-polygon belső reprezentáció, és
+    kimehet a diszken túl.
+  - **A clamp egyszer fut, a pipeline végén.** A `rotate` / `scale` / `translate`
+    primitívek tiszták, nem clampelnek. Korábban mindhárom clampelt, azzal az érveléssel,
+    hogy „a D22 minden transzformációra áll" — ez összetett pipeline-ban hibás: egy
+    *köztes* eredmény clampelése információt dob el, amire a későbbi lépéseknek szüksége
+    van.
+  - **Javított hiba (0.21)**: a `toBasePoint` a *base* pontot clampelte a diszkre, így egy
+    vertex elérhető tartománya egy `size` rádiuszú, az `offset` körüli diszk lett, nem a
+    körlap. Mérve: 50%-os méretnél egy vertex csak a kör feléig húzható, 30%-nál a
+    harmadáig, és elmozgatott maszkkal aszimmetrikusan — az egyik irányban 0.10-ig. Egy
+    háromszög „átfordítása" tehát nem volt lehetséges. Most a **display** pontot
+    clampeljük, mielőtt visszaképezzük, és a vertex bárhová húzható a körlapon,
+    bármilyen méret / offset / rotáció mellett.
 - **D23 — Presetek rádiusz-arányban definiálva.** Preset betöltése felülírja az
   aktuális polygont, megerősítés nélkül.
 - **D24 — Nem-konvex polygon engedve**, even-odd szabállyal. Önátmetszés nincs tiltva.
@@ -433,3 +448,6 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
 - 0.20 — **belső gyűrű (D47)**: minden csúcs és élfelező félútja a közép felé, azaz +6 szín
   egy triádon (7 → 13). A rendezési kulcs kvantálva; a semleges csoport az exportált lapra
   is átkerült.
+- 0.21 — **hibajavítás (D22)**: a clamp a kirajzolt vertexre vonatkozik, nem a tároltra, és
+  egyszer fut a pipeline végén; a transzformációs primitívek tiszták. Egy vertex innentől
+  bárhová húzható a körlapon, méretezett és elmozgatott maszkkal is.

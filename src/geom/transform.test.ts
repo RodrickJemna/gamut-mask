@@ -7,6 +7,11 @@ import { rotate, scale, translate } from './transform.ts'
  * Tolerances here are measured: the polar formulation drifts by about 2e-16 in radius
  * over a full sweep and 3e-16 in position across rotate(360), so 1e-12 is generous
  * headroom rather than a guess.
+ *
+ * These are PURE transforms — none of them clamps to the disk. Clamping is applied once
+ * to the composed result, in `displayPolygon`, and is asserted there. Clamping inside
+ * each primitive was a bug: it discarded information the later steps of the pipeline
+ * needed, which is what confined a vertex drag to a fraction of the wheel.
  */
 
 const poly: Polygon = [
@@ -88,11 +93,11 @@ describe('rotate', () => {
     expect(r[0].y).toBe(0)
   })
 
-  it('keeps every vertex inside the disk (D22)', () => {
+  it('cannot move a vertex across the rim, since it preserves radius', () => {
     const onRim: Polygon = [polar(0, 1), polar(90, 1), polar(200, 1)]
     for (let d = 0; d < 360; d += 7) {
       for (const p of rotate(onRim, d)) {
-        expect(radiusOf(p.x, p.y)).toBeLessThanOrEqual(1 + 1e-12)
+        expect(radiusOf(p.x, p.y)).toBeCloseTo(1, 12)
       }
     }
   })
@@ -119,14 +124,12 @@ describe('scale', () => {
     }
   })
 
-  it('clamps vertices that would leave the disk, keeping their angle (D22)', () => {
+  it('scales past the rim without clamping, keeping every angle', () => {
     const scaled = scale(poly, 4)
     scaled.forEach((p, i) => {
-      expect(radiusOf(p.x, p.y)).toBeLessThanOrEqual(1 + 1e-12)
+      expect(radiusOf(p.x, p.y)).toBeCloseTo(radiusOf(poly[i].x, poly[i].y) * 4, 12)
       expect(angleOf(p.x, p.y)).toBeCloseTo(angleOf(poly[i].x, poly[i].y), 9)
     })
-    // The 0.95 vertex must have hit the rim.
-    expect(radiusOf(scaled[2].x, scaled[2].y)).toBeCloseTo(1, 12)
   })
 
   it('scale by 0 collapses to the origin without NaN', () => {
@@ -137,26 +140,22 @@ describe('scale', () => {
     }
   })
 
-  it('stays inside the disk for very large factors', () => {
+  it('remains exact for very large factors', () => {
     for (const f of [10, 1e3, 1e6]) {
-      for (const p of scale(poly, f)) {
-        expect(radiusOf(p.x, p.y)).toBeLessThanOrEqual(1 + 1e-12)
-      }
+      scale(poly, f).forEach((p, i) => {
+        expect(radiusOf(p.x, p.y)).toBeCloseTo(radiusOf(poly[i].x, poly[i].y) * f, 6)
+      })
     }
   })
 
-  /**
-   * The reason `size` is a scalar in state rather than baked into the vertices (D22 is
-   * lossy). Scaling up past the rim and back down does NOT restore the shape — this test
-   * pins that down so the state design has a concrete reason attached to it.
-   */
-  it('is lossy once a vertex hits the rim, which is why size is stored as a scalar', () => {
-    const there = scale(poly, 4)
-    const andBack = scale(there, 0.25)
-    const worst = Math.max(
-      ...andBack.map((p, i) => Math.hypot(p.x - poly[i].x, p.y - poly[i].y)),
-    )
-    expect(worst).toBeGreaterThan(0.01)
+  it('round-trips exactly now that it does not clamp', () => {
+    // Information is lost by displayPolygon's final clamp, not here — that is asserted
+    // against the pipeline in reducer.test.ts.
+    const andBack = scale(scale(poly, 4), 0.25)
+    andBack.forEach((p, i) => {
+      expect(p.x).toBeCloseTo(poly[i].x, 12)
+      expect(p.y).toBeCloseTo(poly[i].y, 12)
+    })
   })
 })
 
@@ -179,12 +178,15 @@ describe('translate (D42)', () => {
     expect(Math.abs(signedArea(moved))).toBeCloseTo(Math.abs(signedArea(poly)), 12)
   })
 
-  it('clamps vertices to the disk itself (D22)', () => {
-    // rotate and scale short-circuit on their identity values, so at rotation 0 and
-    // size 1 nothing downstream would clamp a dragged mask.
-    for (const p of translate(poly, { x: 0.9, y: 0.9 })) {
-      expect(radiusOf(p.x, p.y)).toBeLessThanOrEqual(1 + 1e-12)
-    }
+  it('moves vertices past the rim without clamping', () => {
+    // The pipeline clamps; the primitive must not, or a composed transform loses the
+    // information its later steps need.
+    const moved = translate(poly, { x: 0.9, y: 0.9 })
+    expect(moved.some((p) => radiusOf(p.x, p.y) > 1)).toBe(true)
+    moved.forEach((p, i) => {
+      expect(p.x).toBeCloseTo(poly[i].x + 0.9, 12)
+      expect(p.y).toBeCloseTo(poly[i].y + 0.9, 12)
+    })
   })
 
   it('composes: two translations equal their sum, while nothing clamps', () => {

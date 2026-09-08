@@ -6,7 +6,7 @@
  */
 
 import { angleOf, polar, radiusOf, type Point } from '../color/wheel.ts'
-import { clampToDisk } from '../geom/polygon.ts'
+import { clampPolygon, clampToDisk } from '../geom/polygon.ts'
 import { rotate, scale, translate } from '../geom/transform.ts'
 import { buildPreset, type PresetId } from '../mask/presets.ts'
 import type { Action, AppState } from './types.ts'
@@ -50,7 +50,11 @@ const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.m
 export function displayPolygon(
   mask: Pick<AppState, 'basePolygon' | 'offset' | 'rotation' | 'size'>,
 ): Point[] {
-  return rotate(translate(scale(mask.basePolygon, mask.size), mask.offset), mask.rotation)
+  // Clamped ONCE, here, on the composed result. The transforms themselves are pure: see
+  // the note at the top of geom/transform.ts for why clamping intermediates was wrong.
+  return clampPolygon(
+    rotate(translate(scale(mask.basePolygon, mask.size), mask.offset), mask.rotation),
+  )
 }
 
 /**
@@ -80,17 +84,22 @@ function unrotate(p: Point, rotation: number): Point {
  * Mirrors `displayPolygon` in reverse: undo the rotation, subtract the offset, undo the
  * scale.
  *
- * Exact only where the forward transform did not clamp. Once a vertex is stuck on the rim
- * (D22) its original radius is gone and no inverse can recover it — which is exactly why
- * rotation, size and offset are kept as scalars instead of baked into the vertices.
+ * THE CLAMP IS APPLIED TO THE DISPLAY POINT, before unmapping — not to the base
+ * coordinate afterwards. What D22 requires is that the vertex the user SEES stays inside
+ * the disk; the stored coordinate is an internal representation and may sit outside it.
+ *
+ * Clamping the base instead confined a vertex to a disk of radius `size` centred on the
+ * offset rather than to the wheel: at size 50% a vertex could only be dragged half way
+ * across, at 30% barely a third, and with the mask also moved the limit went asymmetric
+ * — 0.10 in one direction. That is the bug this shape of the function fixes.
  */
 export function toBasePoint(p: Point, state: AppState): Point {
   const size = state.size === 0 ? MIN_SIZE : state.size
-  const unrotated = unrotate(p, state.rotation)
-  return clampToDisk({
+  const unrotated = unrotate(clampToDisk(p), state.rotation)
+  return {
     x: (unrotated.x - state.offset.x) / size,
     y: (unrotated.y - state.offset.y) / size,
-  })
+  }
 }
 
 /**
