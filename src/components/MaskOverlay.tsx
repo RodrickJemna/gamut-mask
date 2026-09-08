@@ -11,6 +11,7 @@
 
 import { useRef, type PointerEvent as ReactPointerEvent } from 'react'
 import { ANCHORS, dir, polar, type Point } from '../color/wheel.ts'
+import { centroidExtent, minAdjacentDistance } from '../geom/polygon.ts'
 import type { Action } from '../state/types.ts'
 
 /** Keep in step with the `.wheel-disk` inset in App.css: inset = (1 - 1/margin) / 2. */
@@ -35,6 +36,58 @@ const HIGHLIGHT_RADIUS = 0.05
 const HANDLE_HIT_RADIUS = 0.055
 /** Thin enough that it does not compete with the handles it sits between. */
 const EDGE_HIT_WIDTH = 9
+
+const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v))
+
+/**
+ * HANDLE CROWDING. The radii above are the sizes at full spread. They are constants in
+ * wheel space, but the DISTANCE BETWEEN VERTICES is not: it shrinks with the size slider
+ * and with any reshaping, so at some point the handles collide and a mask becomes
+ * uneditable without scaling it back up first.
+ *
+ * It is not a small-mask-only problem. The arc presets space their vertices ARC_CHORD =
+ * 0.09 apart, and two hit circles of radius 0.055 overlap below 0.11 — so the analogous
+ * and atmospheric outlines already had overlapping hit areas at 100% size, where the
+ * handle you grabbed depended on SVG paint order rather than on which one you aimed at.
+ *
+ * So all four interaction sizes are scaled by one factor derived from the closest
+ * adjacent pair. Equal circles spaced `d` apart stop overlapping at exactly `d / 2`,
+ * which is therefore the target rather than a tuned fraction of it: any larger and a
+ * click near the midpoint of a short edge grabs the wrong vertex, any smaller and the
+ * handles are needlessly hard to hit.
+ *
+ * Note this must scale the EDGE hit width too. Grab-beats-insert (see HANDLE_HIT_RADIUS)
+ * only holds while the handle's hit radius stays larger than half the edge stroke, so
+ * shrinking one without the other would make the handles of a small mask insert vertices
+ * instead of dragging them — trading one bug for a worse one.
+ */
+function interactionScale(polygon: Point[]): number {
+  const gap = minAdjacentDistance(polygon)
+  return clamp(gap / 2 / HANDLE_HIT_RADIUS, MIN_INTERACTION_SCALE, 1)
+}
+
+/**
+ * Floor for the scale above. Below this the handles stop being pointable at all, so
+ * crowding is the lesser evil: they overlap again and the answer is to scale the mask up
+ * to edit it, which is what the floor advertises by refusing to shrink further.
+ *
+ * At the 470px cap on `.wheel` one wheel unit is ~196px, so 0.3 leaves a visible dot of
+ * about 1.6px radius inside a 3.2px hit target. That is already marginal; it is the limit
+ * of the approach, not a preference.
+ */
+const MIN_INTERACTION_SCALE = 0.3
+
+/**
+ * The highlight ring (D46) is sized against the MASK, not against the handles. Vertex
+ * spacing says nothing about it: a triad's vertices stay far apart at any size, while its
+ * samples crowd together, so a fixed 0.05 ring on a mask scaled to 20% enclosed the whole
+ * shape instead of pointing at one colour inside it.
+ *
+ * Samples sit at the centre, the vertices and the edge midpoints (D47), so the tightest
+ * spacing scales with how far the mask reaches from its own centre. A fifth of that reach
+ * stays clear of the neighbouring sample and still reads as a ring.
+ */
+const HIGHLIGHT_EXTENT_FRACTION = 0.2
 
 /**
  * The disk as two arcs. A single 360-degree arc is degenerate in SVG and renders as
@@ -154,6 +207,19 @@ export function MaskOverlay({ polygon, offset, highlight, canDelete, dispatch }:
     if (at) dispatch({ type: 'addVertex', at, afterIndex })
   }
 
+  /**
+   * Interaction sizes for THIS shape. Cheap enough to recompute every render — one pass
+   * over the vertices, against a polygon that is itself rebuilt on every drag frame.
+   */
+  const scale = interactionScale(polygon)
+  const handleRadius = HANDLE_RADIUS * scale
+  const hitRadius = HANDLE_HIT_RADIUS * scale
+  const edgeHitWidth = EDGE_HIT_WIDTH * scale
+  const highlightRadius = Math.min(
+    HIGHLIGHT_RADIUS,
+    HIGHLIGHT_EXTENT_FRACTION * centroidExtent(polygon),
+  )
+
   const half = VIEW_MARGIN
   return (
     <svg
@@ -248,7 +314,7 @@ export function MaskOverlay({ polygon, offset, highlight, canDelete, dispatch }:
             x2={next.x}
             y2={next.y}
             stroke="transparent"
-            strokeWidth={EDGE_HIT_WIDTH}
+            strokeWidth={edgeHitWidth}
             pointerEvents="stroke"
             vectorEffect="non-scaling-stroke"
             style={{ cursor: 'copy' }}
@@ -263,7 +329,7 @@ export function MaskOverlay({ polygon, offset, highlight, canDelete, dispatch }:
           key={`handle-${i}`}
           cx={p.x}
           cy={p.y}
-          r={HANDLE_RADIUS}
+          r={handleRadius}
           fill="var(--mask-line)"
           stroke="var(--mask-wash)"
           strokeWidth="1"
@@ -283,7 +349,7 @@ export function MaskOverlay({ polygon, offset, highlight, canDelete, dispatch }:
           <circle
             cx={highlight.x}
             cy={highlight.y}
-            r={HIGHLIGHT_RADIUS}
+            r={highlightRadius}
             fill="none"
             stroke="var(--mask-wash)"
             strokeWidth="4"
@@ -293,7 +359,7 @@ export function MaskOverlay({ polygon, offset, highlight, canDelete, dispatch }:
           <circle
             cx={highlight.x}
             cy={highlight.y}
-            r={HIGHLIGHT_RADIUS}
+            r={highlightRadius}
             fill="none"
             stroke="var(--mask-line)"
             strokeWidth="1.75"
@@ -308,7 +374,7 @@ export function MaskOverlay({ polygon, offset, highlight, canDelete, dispatch }:
           key={`hit-${i}`}
           cx={p.x}
           cy={p.y}
-          r={HANDLE_HIT_RADIUS}
+          r={hitRadius}
           fill="transparent"
           style={{ cursor: 'grab' }}
           onPointerDown={(e) => onHandleDown(e, i)}

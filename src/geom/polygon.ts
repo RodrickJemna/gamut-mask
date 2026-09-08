@@ -139,3 +139,39 @@ export function bounds(poly: Polygon): Bounds {
   }
   return { minX, minY, maxX, maxY }
 }
+
+/**
+ * The shortest distance between two ADJACENT vertices, closing the ring.
+ *
+ * Used to size the drag handles so they cannot overlap each other: two equal circles
+ * spaced `d` apart stop overlapping at radius `d / 2`. Adjacency is what matters rather
+ * than the global minimum over all pairs, because non-adjacent vertices of a
+ * self-intersecting mask (D24) may legitimately sit on top of one another, and shrinking
+ * every handle because of that would be wrong.
+ *
+ * Returns Infinity for a ring too short to have a pair, so callers clamp to their own
+ * maximum without a special case.
+ */
+export function minAdjacentDistance(poly: Polygon): number {
+  if (poly.length < 2) return Infinity
+  let min = Infinity
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i]
+    const b = poly[(i + 1) % poly.length]
+    const d = Math.hypot(b.x - a.x, b.y - a.y)
+    if (d < min) min = d
+  }
+  return min
+}
+
+/** Largest distance from the area centroid to a vertex — how far the mask reaches. */
+export function centroidExtent(poly: Polygon): number {
+  if (poly.length === 0) return 0
+  const c = centroid(poly)
+  let max = 0
+  for (const p of poly) {
+    const d = Math.hypot(p.x - c.x, p.y - c.y)
+    if (d > max) max = d
+  }
+  return max
+}

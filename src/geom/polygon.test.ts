@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { polar, type Point } from '../color/wheel.ts'
+import { buildPreset } from '../mask/presets.ts'
 import {
   bounds,
   centroid,
+  centroidExtent,
   clampPolygon,
   clampToDisk,
   containsPoint,
+  minAdjacentDistance,
   signedArea,
   type Polygon,
 } from './polygon.ts'
@@ -333,5 +336,95 @@ describe('bounds', () => {
 
   it('is all zeros for an empty ring', () => {
     expect(bounds([])).toEqual({ minX: 0, minY: 0, maxX: 0, maxY: 0 })
+  })
+})
+
+/**
+ * These two size the drag handles, so what they measure is an editability property: a
+ * handle wider than half the gap to its neighbour overlaps it, and whichever circle SVG
+ * paints last wins the pointer.
+ */
+describe('minAdjacentDistance', () => {
+  it('is the side length of a regular ring', () => {
+    const square: Polygon = [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 1, y: 1 },
+      { x: 0, y: 1 },
+    ]
+    expect(minAdjacentDistance(square)).toBeCloseTo(1, 12)
+  })
+
+  it('closes the ring, so the last-to-first edge counts', () => {
+    const poly: Polygon = [
+      { x: 0, y: 0 },
+      { x: 5, y: 0 },
+      { x: 5, y: 5 },
+      { x: 0.25, y: 0 },
+    ]
+    // The short edge is the closing one, from {0.25,0} back to {0,0}.
+    expect(minAdjacentDistance(poly)).toBeCloseTo(0.25, 12)
+  })
+
+  it('ignores coincident NON-adjacent vertices', () => {
+    // A bowtie: vertices 0 and 2 are far apart, but the crossing means two edges pass
+    // through the same region. D24 permits this shape and its handles are not crowded,
+    // so a global minimum over all pairs would shrink them for no reason.
+    const bowtie: Polygon = [
+      { x: -1, y: -1 },
+      { x: 1, y: 1 },
+      { x: 1, y: -1 },
+      { x: -1, y: 1 },
+    ]
+    expect(minAdjacentDistance(bowtie)).toBeCloseTo(2, 12)
+  })
+
+  it('is Infinity when there is no pair', () => {
+    expect(minAdjacentDistance([])).toBe(Infinity)
+    expect(minAdjacentDistance([{ x: 0, y: 0 }])).toBe(Infinity)
+  })
+
+  /**
+   * Documents the measurement that motivated scaling the handles at all: the arc-based
+   * presets are crowded at FULL size, not only when shrunk. Two hit circles of radius
+   * 0.055 (HANDLE_HIT_RADIUS in MaskOverlay.tsx) need 0.11 of clearance.
+   */
+  it('shows the arc presets are already crowded at full size', () => {
+    expect(minAdjacentDistance(buildPreset('triad', 0))).toBeGreaterThan(0.11)
+    expect(minAdjacentDistance(buildPreset('split', 0))).toBeGreaterThan(0.11)
+    expect(minAdjacentDistance(buildPreset('analogous', 0))).toBeLessThan(0.11)
+    expect(minAdjacentDistance(buildPreset('atmospheric', 0))).toBeGreaterThan(0.11)
+  })
+
+  it('shrinks with the mask, which is what makes a fixed handle size wrong', () => {
+    const full = buildPreset('triad', 0)
+    const small = full.map((p) => ({ x: p.x * 0.2, y: p.y * 0.2 }))
+    expect(minAdjacentDistance(small)).toBeCloseTo(minAdjacentDistance(full) * 0.2, 12)
+  })
+})
+
+describe('centroidExtent', () => {
+  it('is the circumradius of a square about its centre', () => {
+    const square: Polygon = [
+      { x: -1, y: -1 },
+      { x: 1, y: -1 },
+      { x: 1, y: 1 },
+      { x: -1, y: 1 },
+    ]
+    expect(centroidExtent(square)).toBeCloseTo(Math.SQRT2, 12)
+  })
+
+  it('measures from the mask, not from the wheel centre', () => {
+    // An off-centre triangle: its reach is small even though it sits far from the origin.
+    const poly: Polygon = [
+      { x: 0.8, y: 0 },
+      { x: 0.9, y: 0.1 },
+      { x: 0.9, y: -0.1 },
+    ]
+    expect(centroidExtent(poly)).toBeLessThan(0.15)
+  })
+
+  it('is zero for an empty ring', () => {
+    expect(centroidExtent([])).toBe(0)
   })
 })
