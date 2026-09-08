@@ -88,12 +88,15 @@ export default function App() {
    * D50 — whether the wheel shades what no enabled paint can reach.
    *
    * A view setting, so it stays out of the reducer along with the other ones D13 keeps
-   * out: it changes nothing about the mask and nothing a saved file would need. On by
-   * default, because the point is to see the limit BEFORE placing a mask; the checkbox is
-   * there because roughly 42% of the disk is shaded and that is a lot of ink to force on
-   * someone judging hues.
+   * out: it changes nothing about the mask and nothing a saved file would need.
+   *
+   * OFF by default. It shipped on, on the argument that the limit is most useful before a
+   * mask is placed and that a feature defaulted off is never discovered; the author's
+   * verdict on seeing it was that a scrim over 42% of the disk is ugly, and it is his
+   * wheel. The counter in the list heading still reports coverage unprompted, so nothing
+   * is silently lost by leaving this off.
    */
-  const [showUnreachable, setShowUnreachable] = useState(true)
+  const [showUnreachable, setShowUnreachable] = useState(false)
 
   const { basePolygon, offset, rotation, size, enabledBrands } = state
   const polygon = useMemo(

@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.25
+Verzió: 0.26
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -183,8 +183,11 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
     érte el, ott a kettő megszűnik különbözni. A 80 olvasható és közben egyértelműen a
     világosabb.
   - **Nem az állapotban**: a be/kikapcsolás nézeti beállítás, `useState` az App-ban a
-    `highlighted` mellett. **Alapból bekapcsolva**, mert a lényeg a mask elhelyezése
-    előtti tájékozódás, a jelölőnégyzet pedig azért van, mert a korong ~42%-át átfesti.
+    `highlighted` mellett. **Alapból kikapcsolva** (0.26-ban módosítva): eredetileg
+    bekapcsolva indult, azzal az érveléssel, hogy a limit a mask elhelyezése *előtt* a
+    leghasznosabb, és hogy egy kikapcsolt funkciót senki nem talál meg. A szerző ítélete
+    ránézésre az volt, hogy a korong 42%-át beborító fátyol csúnya — a számláló pedig
+    kérés nélkül is jelenti a fedést, tehát kikapcsolva sem veszik el semmi.
   - **Az exportált lapra nem kerül rá** (D43/D45): a lap minta-soronként már kiírja a
     „No paint found"-ot, tehát ott a fátyol csak sötétítené a kis körképet.
 - **D49 — Szerkesztési kényelem: visszavonás, kézi értékbevitel, szög-rasztolás, és
@@ -587,3 +590,5 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   gyártó sem ér el 5%-on belül, plusz „N of M matched" a lista fejlécében. A küszöb a
   tolerancia kerekítési határából jön, és teszt köti össze a `matchingPaints`-szel. A
   területi fedés ~58%, nem a jegyzetben szereplő 73.4% — az cellánkénti volt.
+- 0.26 — **a D50 fátyol alapból kikapcsolva**: a szerző szerint a korong 42%-át beborító
+  árnyékolás csúnya. A jelölőnégyzet a helyén, a számláló változatlanul mindig látszik.
