@@ -215,11 +215,26 @@ All three questions that were open during the build are settled, in spec version
   excluded are the 73.xxx auxiliary line, varnishes and mediums, and the Metal / True
   Metallic ranges, where a flat swatch misrepresents a metallic. 45 Vallejo codes on
   chart pages have no swatch above them and are skipped.
-- **Together the two brands cover 73.4% of the disk** within 5%, against 63.0% for AK
-  alone. The unmatched remainder is the saturated rim, where no pigment reaches.
-- **Constants awaiting a calibrated eye.** `--mask-wash-opacity` (0.58) and the preset
-  radii in `mask/presets.ts` were set by eye in a browser, not on a colour-managed
-  display. They are named constants for exactly this reason.
+- **Coverage: 73.4% of the disk per CELL, but only ~58% by AREA.** Both figures are of
+  the same grid; the per-cell one over-counts the centre, because a cell at t = 0.05
+  covers a twentieth of the area of one at t = 1. By area — which is what the eye sees on
+  the wheel and what D50's scrim shades — roughly 42% of the disk is unreachable. AK alone
+  is 63.0% per cell. The old note recorded only the per-cell figure, which made coverage
+  sound better than it is.
+- **The unmatched region is NOT "the saturated rim"**, which the old note also claimed.
+  It is strongly hue-dependent: red stays reachable to the rim, while blue and magenta
+  give out at about t = 0.48 and green at t = 0.60. That is precisely why D50 draws the
+  region rather than only counting it — the shape cannot be guessed from a number.
+- **Constants awaiting a calibrated eye.** `--mask-wash-opacity` (0.58), `SHADE_ALPHA`
+  (80, in `paints/coverage.ts`) and the preset radii in `mask/presets.ts` were set by eye
+  in a browser, not on a colour-managed display. They are named constants for exactly this
+  reason. `SHADE_ALPHA` was at least compared against alternatives on screen: 48 could not
+  be seen at all and 110 collided with the wash's weight.
+- **The wheel does not paint itself in a hidden tab.** `WheelCanvas` measures itself with
+  a ResizeObserver only, and those callbacks do not fire while `document.visibilityState`
+  is `hidden`, so `size` stays 0 and no canvas mounts — the box has real dimensions the
+  whole time. It corrects itself the moment the tab becomes visible, so this matters only
+  when driving the page from automation, where it looks exactly like a broken render.
 
 ## 7. The one named later candidate
 

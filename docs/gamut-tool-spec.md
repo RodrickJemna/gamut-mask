@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.24
+Verzió: 0.25
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -149,6 +149,44 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D50 — Elérhetőségi visszajelzés: mit nem tud egyáltalán kiadni festék.**
+  - **A probléma**: a festék-fedés se nem egyenletes, se nem kitalálható, tehát a maskot
+    oda is lehet vinni, ahol a színei többségének nincs tégelye — és ez eddig csak
+    utólag derült ki, a listából.
+  - **Két olvasat, ugyanarra a kérdésre.** A körön egy **fátyol** árnyékolja, amit egyik
+    engedélyezett gyártó sem közelít 5%-on belül (a mask elhelyezése **előtt**), a lista
+    fejlécében pedig egy **számláló** mondja meg, hogy a jelenlegi mask hogyan járt
+    („11 of 13 matched").
+  - **Üres gyártó-szűrőnél mindkettő eltűnik**: nem kerestünk, tehát a „0 of 13" hamis
+    állítás lenne, nem eredmény — ugyanaz a különbségtétel, mint a D48-nál.
+  - **Távolság-mező, nem logikai maszk**: cellánként a legközelebbi festék távolsága
+    tárolódik, és a küszöb **pixelenként** alkalmazódik, így a határ interpolálható és
+    egy 1 fokos rács is sima élt ad, nem lépcsőt. A felbontást a mérés döntötte el: a
+    teljes minimum mind az 1297 festékre egy 360×64-es rácson **34 ms** mindkét gyártóra,
+    tehát nincs ok durvábbat tárolni vagy a munkát későbbre tolni.
+  - **Gyártónként külön mező, olvasáskor kombinálva** (cellánkénti minimum): egy szín
+    csak akkor elérhetetlen, ha **minden** engedélyezett gyártó elvéti, és egy harmadik
+    katalógus így egy mezőbe kerül, nem 2^n kombináció újraszámolásába.
+  - **A küszöb a `MATCH_TOLERANCE_PERCENT`-ből származik**, nem beírva, és teszt állítja,
+    hogy a fátyol és a `matchingPaints` **minden rácspontban** egyetért. Az árnyékolt
+    terület és a listában lévő szöveg ugyanaz a kérdés; a D40-nek már van sebhelye abból,
+    amikor két ilyen olvasat elcsúszott.
+  - **A fedés valódi száma**: a korong **területének** kb. 42%-a elérhetetlen mindkét
+    katalógussal együtt is. Az implementációs jegyzetben szereplő 73.4% **cellánkénti**
+    fedés egy egyenletes theta–t rácson, ami túlsúlyozza a közepet: egy t=0.05-es cella a
+    huszadát fedi egy t=1-esnek. Területre vetítve a fedés ~58%.
+  - **És nem „a perem"**: a vörös a peremig elérhető, a kék és a magenta viszont már
+    t≈0.48 körül kifogy. Ez az, amiért a számláló egyedül nem elég — az alakzat nem
+    kitalálható.
+  - **Alfa 80/255, ránézésre választva**: 48 láthatatlan volt (a terület bizonyíthatóan
+    ki volt rajzolva, mégsem lehetett kivenni), 110 a maskon kívüli fátyol (D28) súlyát
+    érte el, ott a kettő megszűnik különbözni. A 80 olvasható és közben egyértelműen a
+    világosabb.
+  - **Nem az állapotban**: a be/kikapcsolás nézeti beállítás, `useState` az App-ban a
+    `highlighted` mellett. **Alapból bekapcsolva**, mert a lényeg a mask elhelyezése
+    előtti tájékozódás, a jelölőnégyzet pedig azért van, mert a korong ~42%-át átfesti.
+  - **Az exportált lapra nem kerül rá** (D43/D45): a lap minta-soronként már kiírja a
+    „No paint found"-ot, tehát ott a fátyol csak sötétítené a kis körképet.
 - **D49 — Szerkesztési kényelem: visszavonás, kézi értékbevitel, szög-rasztolás, és
   festék-eltérés egy szóban.** Négy kis tétel, egy döntésbe fogva, mert mind ugyanazt a
   problémát célozza: a mask szerkeszthető, de a szerkesztés nem visszakövethető és nem
@@ -545,3 +583,7 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   értékbevitel a rotációhoz és a mérethez, szög-rasztolás a hat anchorra, és egy szó a
   festék-eltérésről a dominánsabb tengely szerint. Plusz a fogantyúk mérete a legközelebbi
   szomszédos csúcspárból származik — az ív-presetek fogantyúi 100%-on is átfedtek.
+- 0.25 — **elérhetőségi visszajelzés (D50)**: fátyol a körön arra, amit egyik engedélyezett
+  gyártó sem ér el 5%-on belül, plusz „N of M matched" a lista fejlécében. A küszöb a
+  tolerancia kerekítési határából jön, és teszt köti össze a `matchingPaints`-szel. A
+  területi fedés ~58%, nem a jegyzetben szereplő 73.4% — az cellánkénti volt.
