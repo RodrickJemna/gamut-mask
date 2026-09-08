@@ -51,8 +51,45 @@ describe('which points are sampled (D47)', () => {
     expect(samples.some((s) => near(s, centroid(bigTriad), 1e-6))).toBe(true)
   })
 
-  it('gives a triangle exactly 1 + 3 + 3 colours', () => {
-    expect(sampleMask(bigTriad)).toHaveLength(7)
+  it('includes the halfway point from each vertex and edge midpoint to the centre', () => {
+    const samples = sampleMask(bigTriad)
+    const c = centroid(bigTriad)
+    const half = (p: { x: number; y: number }) => ({ x: (p.x + c.x) / 2, y: (p.y + c.y) / 2 })
+    for (const v of bigTriad) {
+      expect(samples.some((s) => near(s, half(v), 1e-6))).toBe(true)
+    }
+    for (let i = 0; i < bigTriad.length; i++) {
+      const a = bigTriad[i]
+      const b = bigTriad[(i + 1) % bigTriad.length]
+      expect(
+        samples.some((s) => near(s, half({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }), 1e-6)),
+      ).toBe(true)
+    }
+  })
+
+  it('gives a triangle 1 + 3 + 3 + 3 + 3 colours', () => {
+    expect(sampleMask(bigTriad)).toHaveLength(13)
+  })
+
+  it('gives each hue a full-strength and a half-strength entry', () => {
+    // Two rings: a corner at full saturation and the same hue pulled halfway to neutral.
+    const samples = sampleMask(bigTriad)
+    for (const v of bigTriad) {
+      const hue = angleOf(v.x, v.y)
+      const atHue = samples.filter((s) => Math.abs(s.theta - hue) < 1e-6)
+      expect(atHue.length).toBeGreaterThanOrEqual(2)
+      const sats = atHue.map((s) => s.t).sort((a, b) => b - a)
+      expect(sats[1] / sats[0]).toBeCloseTo(0.5, 2)
+    }
+  })
+
+  it('lists a hue outer-ring first', () => {
+    const samples = sampleMask(bigTriad)
+    for (let i = 1; i < samples.length; i++) {
+      if (Math.abs(samples[i].theta - samples[i - 1].theta) < 1e-9) {
+        expect(samples[i].t).toBeLessThanOrEqual(samples[i - 1].t)
+      }
+    }
   })
 
   it('the centre of a centred mask is neutral', () => {
@@ -92,7 +129,7 @@ describe('separation', () => {
    */
   it('drops candidates that would resolve to the same colour', () => {
     const analogous = buildPreset('analogous', 0)
-    const raw = 1 + analogous.length * 2
+    const raw = 1 + analogous.length * 4
     const samples = sampleMask(analogous)
     expect(raw).toBeGreaterThan(25)
     expect(samples.length).toBeLessThan(raw / 2)
@@ -130,7 +167,7 @@ describe('separation', () => {
     const counts = [0.9, 0.4, 0.1, 0.02].map(
       (r) => sampleMask([polar(0, r), polar(120, r), polar(240, r)]).length,
     )
-    expect(counts[0]).toBe(7)
+    expect(counts[0]).toBe(13)
     expect(counts[3]).toBeLessThan(counts[0])
     for (let i = 1; i < counts.length; i++) {
       expect(counts[i]).toBeLessThanOrEqual(counts[i - 1])

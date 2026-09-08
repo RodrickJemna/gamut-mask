@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.19
+Verzió: 0.20
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -134,10 +134,15 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
-- **D47 — A minták a mask geometriájából**: a lista a mask **középpontja**, a **csúcsai**,
-  és minden **él felezőpontja**. Egy triádnál ez hét szín — három hue a sarkokban, három
-  tompított keverék az élek felén, és a semleges a közepén —, azaz egy limitált paletta
-  úgy, ahogy egy festő valóban kirakja.
+- **D47 — A minták a mask geometriájából, két gyűrűben**:
+  - a **középpont**;
+  - **külső gyűrű**: minden **csúcs** és minden **él felezőpontja**;
+  - **belső gyűrű**: mindkettőnek a **közép felé vett félútja**.
+  
+  Egy triádnál ez tizenhárom szín: három hue a sarkokban (82% telítettség), három
+  tompított keverék az élek felén és három félerős sarok (mind 41%), három félerős
+  élkeverék (~21%), és a semleges. Azaz egy limitált paletta a saját tompított
+  sávjával — amit a festő úgy kap, hogy minden színt a semleges felé húz.
   - **Miért nem a rács + Lloyd**: az egyenletes szórás a mask *területét* írja le
     tisztességesen, de nem paletta. A választott pontok önkényesek voltak, és egyik sem
     volt sem a sarok, sem a semleges, amiből az ember kever. A csere egyben törölte a
@@ -148,8 +153,15 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
     csúcsai a görbe simaságáért vannak, nem jelölnek semmit: nyersen az analóg ék 31, az
     atmoszférikus 29 jelöltet ad, szinte mindet szomszéd-duplikátumként; szeparálva 8-at
     és 10-et. A triád és a split mind a 7-et megtartja.
-  - **A darabszám az alakot követi**, nem egy csúszkát: egy csúcs hozzáadása két új
-    jelölt. A **Colors csúszka megszűnt** — nem volt már mit szabályoznia (F6).
+  - **A darabszám az alakot követi**, nem egy csúszkát: egy csúcs hozzáadása négy új
+    jelölt (csúcs, élfelező, és a kettő félútja). A **Colors csúszka megszűnt** — nem volt
+    már mit szabályoznia (F6). Mérve: triád 13, split 12, analóg 9, atmoszférikus 11.
+  - **A rendezés szöge kvantálva** van az összehasonlításnál. A belső gyűrű több színt tesz
+    ugyanarra a hue-ra (egy sarok és a félerős párja), de a thetáik csak ~1e-13-ig
+    egyeznek, tehát a nyers értékek összehasonlítása a zajra bízta a sorrendet, és egy
+    ártalmatlan újraszámolás átrendezte a listát. Kerekített egész kulcs + telítettség
+    szerint csökkenő: `(theta, t)` itt egyedi, mert két azonos pár ugyanaz a pont lenne,
+    amit a szeparáció már kidobott.
   - **A D25 ezzel valóra vált**: egy elég kicsire zsugorított mask jelöltjei egymásba
     esnek, tehát tényleg kevesebb szín jön — amit a D25 mindig is leírt, és amit a régi
     rács-mintavevő soha nem tett meg. A **D39** ezzel tárgytalan, az 5. pontba került.
@@ -159,7 +171,8 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **A semlegesnek nincs hue-ja**, ezért `theta = 0`-ra és az origóra van snappelve —
     különben a szimmetrikus mask centroidjának ~1e-17-es koordinátáiból zaj-szöget
     olvasnánk, ami instabil rendezést adott —, és a listában **saját „Neutral" csoportot**
-    kap; egy szürkét hue-szeletbe sorolni hazugság lenne.
+    kap — a képernyőn **és** az exportált lapon egyaránt; egy szürkét hue-szeletbe
+    sorolni hazugság lenne, és ha a kettő nem ugyanoda sorolná, az még rosszabb.
 - **D46 — Hover-kiemelés a listáról a körre**: a színlista egy sora fölé érve a körön
   megjelenik egy gyűrű annál a mintánál. Fókuszra is, nem csak hoverre — a sorok eleve
   `<button>`-ök, tehát a billentyűzetes végigtabolás ingyen megkapja.
@@ -417,3 +430,6 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
 - 0.19 — **a minták a mask geometriájából (D47)**: közép + csúcsok + élfelezők, 0.05-os
   Oklab-szeparációval. A rács + Lloyd és a Colors csúszka kiesett, a D39 tárgytalan, a
   D25 valóra vált. A semleges saját csoportot kap.
+- 0.20 — **belső gyűrű (D47)**: minden csúcs és élfelező félútja a közép felé, azaz +6 szín
+  egy triádon (7 → 13). A rendezési kulcs kvantálva; a semleges csoport az exportált lapra
+  is átkerült.

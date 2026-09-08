@@ -164,20 +164,41 @@ export function layoutSheet(
   }
 
   y = wheelTop + WHEEL_SIZE + 30
+
+  /**
+   * Grouped exactly as the screen groups them, neutral group included. A colour with no
+   * chroma has no hue, so filing it under a wedge would be arbitrary — and having the
+   * sheet disagree with the list about where it belongs would be worse.
+   */
+  const neutrals: Sample[] = []
   const buckets: Sample[][] = ANCHORS.map(() => [])
-  for (const s of samples) buckets[wedgeIndexOf(s.theta)].push(s)
+  for (const s of samples) {
+    if (s.t === 0) neutrals.push(s)
+    else buckets[wedgeIndexOf(s.theta)].push(s)
+  }
   for (const b of buckets) b.sort((p, q) => wedgeOffsetOf(p.theta) - wedgeOffsetOf(q.theta))
+
+  const groups: { letter: string; name: string; bucket: Sample[] }[] = [
+    ...(neutrals.length > 0
+      ? [{ letter: '\u00b7', name: 'Neutral', bucket: neutrals }]
+      : []),
+    ...ANCHORS.map((anchor, i) => ({
+      letter: anchor.letter,
+      name: anchor.name,
+      bucket: buckets[i],
+    })),
+  ]
 
   const cols = samples.length > 24 ? 3 : 2
   const GUTTER = 16
   const colW = (PAGE_W - MARGIN * 2 - GUTTER * (cols - 1)) / cols
 
-  for (let w = 0; w < ANCHORS.length; w++) {
-    const bucket = buckets[w]
+  for (const group of groups) {
+    const bucket = group.bucket
     if (bucket.length === 0) continue
 
     ensure(18 + ENTRY_H)
-    c.text(MARGIN, y, `${ANCHORS[w].letter}  ${ANCHORS[w].name.toUpperCase()}`, {
+    c.text(MARGIN, y, `${group.letter}  ${group.name.toUpperCase()}`, {
       size: 8,
       bold: true,
       hex: MUTED,

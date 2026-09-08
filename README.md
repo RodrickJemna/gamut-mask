@@ -33,18 +33,21 @@ in 0.11; it is now D40.
 
 ## Which colours get listed
 
-The palette is the mask's geometry: its **centre**, its **vertices**, and the **midpoint
-of each edge**. For a triad that is seven colours — three hues at the corners, three
-muted mixtures halfway along the edges, and the neutral in the middle — which is a
-limited palette as a painter would lay one out.
+The palette is the mask's geometry, in two rings: its **centre**; each **vertex** and the
+**midpoint of each edge**; and the **halfway point from each of those to the centre**.
+
+For a triad that is thirteen colours — three hues at the corners (82% saturation), three
+muted mixtures along the edges and three half-strength corners (both 41%), three
+half-strength edge mixtures (~21%), and the neutral. A limited palette with its own muted
+range, which is what you get by pulling each colour toward the neutral you mix on.
 
 Colours closer together than 5% in Oklab are dropped, which is the same tolerance used
 for paint matching: two colours nearer than that resolve to the same bottle, so listing
 both is noise. That matters for the arc-based presets, whose vertices exist to make a
 curve smooth rather than to mark anything.
 
-The count follows the shape rather than a slider — add a vertex and you get two more
-candidates.
+The count follows the shape rather than a slider — add a vertex and you get four more
+candidates. Measured: triad 13, split complementary 12, analogous 9, atmospheric 11.
 
 ## The wheel model
 
