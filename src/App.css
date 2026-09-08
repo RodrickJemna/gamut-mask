@@ -234,10 +234,69 @@
   color: var(--text-muted);
 }
 
-.slider > .value {
+/*
+ * The typed value (D49). Styled to read as the old static number rather than as a form
+ * control: no visible box until it is hovered or focused, spinners hidden, so the panel
+ * still looks like an instrument readout and not a settings dialog.
+ */
+.num {
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   color: var(--text);
+}
+
+.num input {
+  width: 3.2em;
+  padding: 1px 2px;
+  text-align: right;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+}
+
+.num input:hover {
+  border-color: var(--border);
+}
+
+.num input:focus {
+  background: var(--surface-raised);
+  border-color: var(--border-strong);
+  outline: none;
+}
+
+/* The spinner arrows are too small to hit and steal width from the digits. */
+.num input::-webkit-inner-spin-button,
+.num input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.num input {
+  appearance: textfield;
+}
+
+.num-suffix {
+  color: var(--text-muted);
+}
+
+/* Snap toggle, on the Shape heading's line. */
+.snap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.snap input {
+  margin: 0;
+  accent-color: var(--text);
 }
 
 .slider input {

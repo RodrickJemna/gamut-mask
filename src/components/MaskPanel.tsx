@@ -11,12 +11,14 @@
  */
 
 import { useState } from 'react'
+import { WEDGE_SPAN, snapToAnchorAngle } from '../color/wheel.ts'
 import { PRESETS } from '../mask/presets.ts'
 import { paintCount } from '../paints/match.ts'
 import { BRANDS, BRAND_TAG } from '../paints/types.ts'
 import type { HistoryAction } from '../state/history.ts'
 import { MAX_SIZE, MIN_SIZE } from '../state/reducer.ts'
 import type { AppState } from '../state/types.ts'
+import { NumberField } from './NumberField.tsx'
 
 type Props = {
   state: AppState
@@ -40,6 +42,26 @@ export function MaskPanel({
 }: Props) {
   const [saved, setSaved] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  /**
+   * D49 — whether the rotate slider steps anchor to anchor.
+   *
+   * Component state, not reducer state: it is an input mode rather than a property of the
+   * mask, and putting it in the reducer would make toggling it an undoable step, which
+   * reads as a bug when cmd-Z turns a checkbox off instead of restoring your shape.
+   * `highlighted` in App.tsx is held out for the same reason.
+   */
+  const [snap, setSnap] = useState(false)
+
+  /**
+   * Turning snap ON also snaps the current angle. Otherwise the slider sits at a value
+   * its own step cannot express — the browser renders the thumb at the nearest stop while
+   * the state stays at 45 degrees, so the control and the mask disagree until you touch
+   * it.
+   */
+  function toggleSnap(on: boolean) {
+    setSnap(on)
+    if (on) dispatch({ type: 'setRotation', deg: snapToAnchorAngle(state.rotation) })
+  }
 
   function save(build: () => string) {
     setSaving(true)
@@ -105,33 +127,72 @@ export function MaskPanel({
       </section>
 
       <section>
-        <h2>Shape</h2>
+        {/* Snap shares the heading's line for the same height reason as undo/redo. */}
+        <div className="panel-head">
+          <h2>Shape</h2>
+          <label className="snap" title={`Step the rotation anchor to anchor (${WEDGE_SPAN}°)`}>
+            <input
+              type="checkbox"
+              checked={snap}
+              onChange={(e) => toggleSnap(e.currentTarget.checked)}
+            />
+            Snap {WEDGE_SPAN}&deg;
+          </label>
+        </div>
 
-        <label className="slider">
+        {/*
+          The label is a <span>, not the <label> wrapper it used to be: a label containing
+          two inputs is ambiguous about which one it names, and clicking the text would
+          focus whichever the browser picked. The slider and the field carry their own
+          aria-labels instead.
+        */}
+        <div className="slider">
           <span>Rotate</span>
-          <span className="value">{Math.round(state.rotation)}&deg;</span>
-          <input
-            type="range"
+          <NumberField
+            value={state.rotation}
             min={0}
             max={359}
-            step={1}
+            suffix="°"
+            label="Rotation in degrees"
+            onCommit={(deg) => dispatch({ type: 'setRotation', deg })}
+          />
+          <input
+            type="range"
+            aria-label="Rotation"
+            min={0}
+            max={359}
+            /*
+              Snapping is done by the STEP rather than by a magnetic tolerance around each
+              anchor. A tolerance would make the angles just either side of an anchor
+              unreachable while snap is on, which is a worse bargain than simply having
+              six stops; exact intermediate values are what the number field is for.
+            */
+            step={snap ? WEDGE_SPAN : 1}
             value={Math.round(state.rotation)}
             onChange={(e) => dispatch({ type: 'setRotation', deg: e.currentTarget.valueAsNumber })}
           />
-        </label>
+        </div>
 
-        <label className="slider">
+        <div className="slider">
           <span>Size</span>
-          <span className="value">{Math.round(state.size * 100)}%</span>
+          <NumberField
+            value={state.size * 100}
+            min={Math.round(MIN_SIZE * 100)}
+            max={Math.round(MAX_SIZE * 100)}
+            suffix="%"
+            label="Size in percent"
+            onCommit={(percent) => dispatch({ type: 'setSize', factor: percent / 100 })}
+          />
           <input
             type="range"
+            aria-label="Size"
             min={MIN_SIZE}
             max={MAX_SIZE}
             step={0.01}
             value={state.size}
             onChange={(e) => dispatch({ type: 'setSize', factor: e.currentTarget.valueAsNumber })}
           />
-        </label>
+        </div>
       </section>
 
       {/*

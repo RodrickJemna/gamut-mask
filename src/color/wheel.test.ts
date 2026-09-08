@@ -12,6 +12,7 @@ import {
   rimSrgb,
   sample,
   sampleSrgb8,
+  snapToAnchorAngle,
   wedgeIndexOf,
   wedgeOffsetOf,
 } from './wheel.ts'
@@ -248,5 +249,39 @@ describe('sample — the model (D35)', () => {
       }
     }
     expect(worstDip).toBeLessThan(1e-3)
+  })
+})
+
+describe('snapToAnchorAngle', () => {
+  it('lands exactly on an anchor for every anchor', () => {
+    for (const anchor of ANCHORS) {
+      expect(snapToAnchorAngle(anchor.angle)).toBe(anchor.angle)
+    }
+  })
+
+  it('rounds to the nearest anchor from either side', () => {
+    expect(snapToAnchorAngle(14)).toBe(0)
+    expect(snapToAnchorAngle(46)).toBe(60)
+    expect(snapToAnchorAngle(119)).toBe(120)
+    expect(snapToAnchorAngle(271)).toBe(300)
+  })
+
+  it('always returns an anchor angle, for any input', () => {
+    const anchorAngles = ANCHORS.map((a) => a.angle)
+    for (let deg = -720; deg <= 1080; deg += 3) {
+      expect(anchorAngles).toContain(snapToAnchorAngle(deg))
+    }
+  })
+
+  it('wraps rather than returning 360', () => {
+    // 340 is nearer to 360 than to 300, and 360 is not an angle the state may hold.
+    expect(snapToAnchorAngle(340)).toBe(0)
+    expect(snapToAnchorAngle(359)).toBe(0)
+  })
+
+  it('is idempotent', () => {
+    for (let deg = 0; deg < 360; deg += 7) {
+      expect(snapToAnchorAngle(snapToAnchorAngle(deg))).toBe(snapToAnchorAngle(deg))
+    }
   })
 })

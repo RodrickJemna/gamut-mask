@@ -39,6 +39,20 @@ export const ANCHORS = [
 export const WEDGE_SPAN = 60
 
 /**
+ * The nearest anchor angle to `deg` (D49).
+ *
+ * The six anchors sit at multiples of WEDGE_SPAN, so this is a rounding — but it is
+ * expressed in terms of the anchors rather than of 60 because that is what makes it
+ * meaningful: the presets are built on the anchor angles, so a rotation that is a
+ * multiple of the wedge span is one that puts the mask's vertices back on named hues.
+ * That is the property worth snapping to, and it is why writing down "triad at 120" is
+ * enough to reproduce a scheme exactly.
+ */
+export function snapToAnchorAngle(deg: number): number {
+  return normalizeAngle(Math.round(deg / WEDGE_SPAN) * WEDGE_SPAN)
+}
+
+/**
  * Which anchor's wedge an angle falls in, as an index into ANCHORS.
  *
  * Each wedge is centred on its anchor, so it runs from anchor - 30 to anchor + 30. Red's
