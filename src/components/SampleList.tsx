@@ -24,6 +24,10 @@
  * The lightness column is a DERIVED consequence, not a control (D16): no L slider, no
  * value ramp, no sorting by lightness.
  *
+ * The heading carries a COUNT of how many samples have a bottle at all (D50). It is the
+ * cheap half of reachability feedback: the scrim on the wheel says where paint runs out
+ * before you place a mask, this says how the mask you have actually did.
+ *
  * Each matched row also carries ONE word for how the bottle differs from the swatch —
  * darker, lighter, greyer or stronger (D49). It is a comparison between two known
  * colours, not a lightness axis on the wheel (D16): see driftLabel in paints/match.ts for
@@ -63,6 +67,28 @@ export function SampleList({ samples, brands, highlighted, onHighlight }: Props)
    * holds, so nudging a slider mid-hover cannot leave the wheel marking a position that
    * no longer exists.
    */
+  /**
+   * Matching for every sample, computed ONCE per (samples, brands) rather than inline in
+   * the row. It was being done twice per row already — `matchingPaints` and
+   * `closestOverall` each scan every enabled brand's catalogue — and the D50 counter
+   * needs the same answer a third time. Roughly 1300 distance evaluations per sample per
+   * brand, on every render including every drag frame, so hoisting it is not premature.
+   */
+  const matched = useMemo(
+    () =>
+      samples.map((sample) => ({
+        matches: matchingPaints(sample.oklab, brands),
+        closest: closestOverall(sample.oklab, brands),
+      })),
+    [samples, brands],
+  )
+
+  /**
+   * D50 — how many samples have a bottle at all. Not shown when no brand is enabled:
+   * nothing was searched, so "0 of 13" would be a false claim rather than a finding.
+   */
+  const matchedCount = matched.filter((m) => m.matches.length > 0).length
+
   const { neutrals, wedges } = useMemo(() => {
     const neutral: { sample: Sample; index: number }[] = []
     const buckets: { sample: Sample; index: number }[][] = ANCHORS.map(() => [])
@@ -95,6 +121,14 @@ export function SampleList({ samples, brands, highlighted, onHighlight }: Props)
     <section className="samples">
       <div className="samples-head">
         <h2>Colors in mask ({samples.length})</h2>
+        {brands.length > 0 && samples.length > 0 && (
+          <span
+            className={matchedCount < samples.length ? 'coverage short' : 'coverage'}
+            title="Samples with at least one paint within 5%"
+          >
+            {matchedCount} of {samples.length} matched
+          </span>
+        )}
       </div>
 
       {samples.length === 0 ? (
@@ -130,8 +164,7 @@ export function SampleList({ samples, brands, highlighted, onHighlight }: Props)
                       // for a different colour when the count changes, which shows as a
                       // swatch briefly displaying the wrong colour.
                       const key = `${hex}-${sample.x.toFixed(4)}-${sample.y.toFixed(4)}`
-                      const matches = matchingPaints(sample.oklab, brands)
-                      const closest = closestOverall(sample.oklab, brands)
+                      const { matches, closest } = matched[index]
                       return (
                         <button
                           key={key}

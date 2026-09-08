@@ -59,6 +59,17 @@
   height: 100%;
 }
 
+/*
+ * D50 — the unreachable-region scrim, stacked exactly over the disk canvas. Absolute
+ * rather than a second flow element so the two share one box and one coordinate frame;
+ * the SVG overlay sits above both.
+ */
+.wheel-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
 .wheel-overlay {
   position: absolute;
   inset: 0;
@@ -428,6 +439,21 @@
 
 .sample:hover {
   border-color: var(--border-strong);
+}
+
+/*
+ * D50 — the matched count beside the heading. Quiet when everything matched; picked out
+ * only when something did not, since that is the case worth noticing.
+ */
+.coverage {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.coverage.short {
+  color: var(--text-muted);
 }
 
 /*

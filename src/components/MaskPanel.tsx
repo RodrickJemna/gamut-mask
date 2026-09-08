@@ -26,6 +26,9 @@ type Props = {
   /** D49 — whether there is anything to step back to, or forward to. */
   canUndo: boolean
   canRedo: boolean
+  /** D50 — whether the wheel shades what no enabled paint reaches. */
+  showUnreachable: boolean
+  onToggleUnreachable: (on: boolean) => void
   /** Builds and downloads the PDF sheet; returns the filename used (D43). */
   onSaveSheet: () => string
   /** Same sheet as a single JPEG; returns the filename used (D45). */
@@ -37,6 +40,8 @@ export function MaskPanel({
   dispatch,
   canUndo,
   canRedo,
+  showUnreachable,
+  onToggleUnreachable,
   onSaveSheet,
   onSaveJpeg,
 }: Props) {
@@ -239,8 +244,22 @@ export function MaskPanel({
             )
           })}
         </div>
-        {state.enabledBrands.length === 0 && (
+        {/*
+          D50 — the scrim toggle sits under the brand checkboxes because it is a statement
+          ABOUT them: what it shades is whatever the boxes above leave unreachable. Hidden
+          entirely when nothing is being matched, since there is then no claim to make.
+        */}
+        {state.enabledBrands.length === 0 ? (
           <p className="samples-note">Paint matching off.</p>
+        ) : (
+          <label className="snap" title="Shade the wheel where no enabled paint comes within 5%">
+            <input
+              type="checkbox"
+              checked={showUnreachable}
+              onChange={(e) => onToggleUnreachable(e.currentTarget.checked)}
+            />
+            Mark unreachable
+          </label>
         )}
       </section>
 

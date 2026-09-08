@@ -19,6 +19,7 @@ import { buildSheetJpeg } from './export/jpeg.ts'
 import { buildSheet } from './export/sheet.ts'
 import { renderWheelImage } from './export/wheelImage.ts'
 import { sampleMask } from './geom/sample.ts'
+import { combinedField } from './paints/coverage.ts'
 import {
   canRedo,
   canUndo,
@@ -83,12 +84,32 @@ export default function App() {
    */
   const [highlighted, setHighlighted] = useState<number | null>(null)
 
+  /**
+   * D50 — whether the wheel shades what no enabled paint can reach.
+   *
+   * A view setting, so it stays out of the reducer along with the other ones D13 keeps
+   * out: it changes nothing about the mask and nothing a saved file would need. On by
+   * default, because the point is to see the limit BEFORE placing a mask; the checkbox is
+   * there because roughly 42% of the disk is shaded and that is a lot of ink to force on
+   * someone judging hues.
+   */
+  const [showUnreachable, setShowUnreachable] = useState(true)
+
   const { basePolygon, offset, rotation, size, enabledBrands } = state
   const polygon = useMemo(
     () => displayPolygon({ basePolygon, offset, rotation, size }),
     [basePolygon, offset, rotation, size],
   )
   const samples = useMemo(() => sampleMask(polygon), [polygon])
+
+  /**
+   * Memoised so the scrim's effect sees a stable identity; `combinedField` caches the
+   * heavy work itself, so this is only about not repainting for free.
+   */
+  const unreachable = useMemo(
+    () => (showUnreachable ? combinedField(enabledBrands) : null),
+    [showUnreachable, enabledBrands],
+  )
 
   const sheetContent = useMemo(
     () => ({
@@ -129,7 +150,7 @@ export default function App() {
   return (
     <main className="app">
       <div className="wheel">
-        <WheelCanvas />
+        <WheelCanvas unreachable={unreachable} />
         <MaskOverlay
           polygon={polygon}
           offset={offset}
@@ -144,6 +165,8 @@ export default function App() {
           dispatch={dispatch}
           canUndo={canUndo(history)}
           canRedo={canRedo(history)}
+          showUnreachable={showUnreachable}
+          onToggleUnreachable={setShowUnreachable}
           onSaveSheet={saveSheet}
           onSaveJpeg={saveJpeg}
         />

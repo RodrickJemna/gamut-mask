@@ -1,9 +1,15 @@
 /**
  * The colour wheel disk, drawn per pixel into a canvas. Spec: F1, D4, D30.
  *
- * Owns the element, its size and the blit; all colour maths lives in color/render.ts and
- * color/wheel.ts. It takes no mask props, which is what makes the cache below correct: a
- * mask edit cannot re-run the render because the render does not depend on the mask.
+ * Owns the elements, their size and the blits; all colour maths lives in color/render.ts,
+ * color/wheel.ts and paints/coverage.ts. It takes NO MASK PROPS, which is what makes the
+ * caches below correct: a mask edit cannot re-run either render, because neither the disk
+ * nor the unreachable region depends on the mask.
+ *
+ * TWO CANVASES, one box (D50). The disk, then the scrim over the region no enabled paint
+ * can reach, then the SVG overlay on top of both. They are separate elements rather than
+ * one composited image so that toggling brands repaints only the scrim — the disk costs
+ * ~140 ms at 1M pixels and has no reason to be recomputed for a checkbox.
  *
  * WHY CANVAS HERE, SVG ON TOP (D4): ~1M independent pixel colours is the one thing SVG
  * cannot express, while hit-testing draggable handles is trivial in SVG and miserable on
@@ -12,6 +18,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { renderDisk } from '../color/render.ts'
+import { renderUnreachable } from '../paints/coverage.ts'
 
 /**
  * Resize settle delay. renderDisk costs ~140 ms at 1M pixels, so recomputing on every
@@ -20,9 +27,22 @@ import { renderDisk } from '../color/render.ts'
  */
 const SETTLE_MS = 120
 
-export function WheelCanvas() {
+type Props = {
+  /**
+   * D50 — the reachability field to shade from, or null to draw no scrim at all.
+   *
+   * A field rather than a brand list: this component has no business knowing what a brand
+   * is, and a stable field identity is a better effect dependency than a list that has to
+   * be flattened to a string to compare. Null covers both "matching is off" and "the
+   * scrim is switched off", which look the same from here.
+   */
+  unreachable: Float32Array | null
+}
+
+export function WheelCanvas({ unreachable }: Props) {
   const boxRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const scrimRef = useRef<HTMLCanvasElement>(null)
   const [size, setSize] = useState(0)
 
   // Measure the wrapper, never the canvas. The canvas is CSS-sized to 100% of the
@@ -67,9 +87,30 @@ export function WheelCanvas() {
     ctx.putImageData(renderDisk(size, dpr), 0, 0)
   }, [size, dpr, side])
 
+  /** D50 — the scrim, repainted only when the field or the pixel size changes. */
+  useEffect(() => {
+    const canvas = scrimRef.current
+    if (!canvas || side <= 0) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.clearRect(0, 0, side, side)
+    if (unreachable) ctx.putImageData(renderUnreachable(size, dpr, unreachable), 0, 0)
+  }, [size, dpr, side, unreachable])
+
   return (
     <div className="wheel-disk" ref={boxRef}>
-      {side > 0 && <canvas ref={canvasRef} width={side} height={side} aria-hidden="true" />}
+      {side > 0 && (
+        <>
+          <canvas ref={canvasRef} width={side} height={side} aria-hidden="true" />
+          <canvas
+            className="wheel-scrim"
+            ref={scrimRef}
+            width={side}
+            height={side}
+            aria-hidden="true"
+          />
+        </>
+      )}
     </div>
   )
 }
