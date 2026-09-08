@@ -14,19 +14,30 @@ import { useState } from 'react'
 import { PRESETS } from '../mask/presets.ts'
 import { paintCount } from '../paints/match.ts'
 import { BRANDS, BRAND_TAG } from '../paints/types.ts'
+import type { HistoryAction } from '../state/history.ts'
 import { MAX_SIZE, MIN_SIZE } from '../state/reducer.ts'
-import type { Action, AppState } from '../state/types.ts'
+import type { AppState } from '../state/types.ts'
 
 type Props = {
   state: AppState
-  dispatch: (action: Action) => void
+  dispatch: (action: HistoryAction) => void
+  /** D49 — whether there is anything to step back to, or forward to. */
+  canUndo: boolean
+  canRedo: boolean
   /** Builds and downloads the PDF sheet; returns the filename used (D43). */
   onSaveSheet: () => string
   /** Same sheet as a single JPEG; returns the filename used (D45). */
   onSaveJpeg: () => string
 }
 
-export function MaskPanel({ state, dispatch, onSaveSheet, onSaveJpeg }: Props) {
+export function MaskPanel({
+  state,
+  dispatch,
+  canUndo,
+  canRedo,
+  onSaveSheet,
+  onSaveJpeg,
+}: Props) {
   const [saved, setSaved] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -45,7 +56,37 @@ export function MaskPanel({ state, dispatch, onSaveSheet, onSaveJpeg }: Props) {
   return (
     <aside className="panel">
       <section>
-        <h2>Mask</h2>
+        {/*
+          D49 — undo/redo shares the heading's line rather than taking a row of its own.
+          The panel is height-constrained (see the note on `.panel` in App.css) and a
+          fifth control row is what pushes the D10 caveat off a 1280x720 screen.
+
+          The buttons exist alongside the keyboard shortcut because nothing else in this
+          UI advertises that undo is available at all.
+        */}
+        <div className="panel-head">
+          <h2>Mask</h2>
+          <div className="history">
+            <button
+              type="button"
+              onClick={() => dispatch({ type: 'undo' })}
+              disabled={!canUndo}
+              title="Undo (cmd-Z)"
+              aria-label="Undo"
+            >
+              &#8630;
+            </button>
+            <button
+              type="button"
+              onClick={() => dispatch({ type: 'redo' })}
+              disabled={!canRedo}
+              title="Redo (cmd-shift-Z)"
+              aria-label="Redo"
+            >
+              &#8631;
+            </button>
+          </div>
+        </div>
         <div className="presets">
           {PRESETS.map((preset) => (
             <button

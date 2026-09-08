@@ -94,6 +94,46 @@
   gap: 8px;
 }
 
+/* Heading and the undo/redo pair on one line — see the note in MaskPanel (D49). */
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.history {
+  display: flex;
+  gap: 4px;
+}
+
+/*
+ * Deliberately quiet: these are a safety net, not a primary control, and the section 6
+ * direction allows exactly one bold element on screen and it is the wheel.
+ */
+.history button {
+  width: 22px;
+  height: 20px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.history button:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.history button:disabled {
+  color: var(--text-dim);
+  cursor: default;
+}
+
 .presets {
   display: grid;
   gap: 4px;

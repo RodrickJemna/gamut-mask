@@ -5,7 +5,7 @@
  * two levels.
  */
 
-import { useCallback, useMemo, useReducer, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import './App.css'
 import { MaskOverlay } from './components/MaskOverlay.tsx'
 import { MaskPanel } from './components/MaskPanel.tsx'
@@ -19,10 +19,53 @@ import { buildSheetJpeg } from './export/jpeg.ts'
 import { buildSheet } from './export/sheet.ts'
 import { renderWheelImage } from './export/wheelImage.ts'
 import { sampleMask } from './geom/sample.ts'
-import { MIN_VERTICES, displayPolygon, initialState, reducer } from './state/reducer.ts'
+import {
+  canRedo,
+  canUndo,
+  historyReducer,
+  initialHistory,
+} from './state/history.ts'
+import { MIN_VERTICES, displayPolygon, initialState } from './state/reducer.ts'
 
 export default function App() {
-  const [state, dispatch] = useReducer(reducer, initialState)
+  /**
+   * The reducer is wrapped in the undo/redo one (D49), so `dispatch` takes the same
+   * actions as before plus `undo` and `redo`. Nothing below this line knows the
+   * difference: `state` is the present, exactly as it was.
+   */
+  const [history, dispatch] = useReducer(historyReducer, initialState, initialHistory)
+  const state = history.present
+
+  /**
+   * Keyboard undo/redo. A window listener rather than a handler on the app root, because
+   * the shortcut has to work with focus anywhere — including nowhere, which is where it
+   * is after clicking the wheel.
+   *
+   * Skipped while a text field has focus: inside the rotation and size inputs, cmd-Z is
+   * the browser's own undo for what you typed, and stealing it there would make the
+   * fields feel broken.
+   */
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return
+      const target = event.target as HTMLElement | null
+      if (target?.isContentEditable) return
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+
+      const key = event.key.toLowerCase()
+      // cmd-shift-Z is redo on macOS, ctrl-Y everywhere else. Both are cheap to accept.
+      if (key === 'z') {
+        event.preventDefault()
+        dispatch({ type: event.shiftKey ? 'redo' : 'undo' })
+      } else if (key === 'y') {
+        event.preventDefault()
+        dispatch({ type: 'redo' })
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   /**
    * Both derived, never stored — storing either would give a second source of truth for
@@ -99,6 +142,8 @@ export default function App() {
         <MaskPanel
           state={state}
           dispatch={dispatch}
+          canUndo={canUndo(history)}
+          canRedo={canRedo(history)}
           onSaveSheet={saveSheet}
           onSaveJpeg={saveJpeg}
         />
