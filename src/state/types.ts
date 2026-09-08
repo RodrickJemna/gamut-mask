@@ -31,6 +31,17 @@ export type AppState = {
    * centre commute.)
    */
   basePolygon: Point[]
+  /**
+   * Where the mask sits on the wheel, as an offset from the centre in base space (D42).
+   *
+   * A third scalar for the same reason rotation and size are scalars: the D22 clamp is
+   * lossy, so translating the vertices themselves would let a mask dragged to the rim and
+   * back come away permanently deformed.
+   *
+   * Applied BEFORE rotation and size, so rotating still swings an off-centre mask around
+   * the wheel rather than spinning it in place.
+   */
+  offset: Point
   /** Degrees, normalised to [0,360) (F5). */
   rotation: number
   /** Scale factor about the wheel centre (F5). */
@@ -52,6 +63,12 @@ export type Action =
   | { type: 'addVertex'; at: Point; afterIndex: number }
   | { type: 'moveVertex'; index: number; to: Point }
   | { type: 'deleteVertex'; index: number }
+  /**
+   * Body drag. Carries the DISPLAY-space delta plus the offset the drag started from,
+   * rather than accumulating deltas, so a dropped or duplicated move event cannot make
+   * the mask drift away from the pointer.
+   */
+  | { type: 'dragMask'; deltaDisplay: Point; offsetAtStart: Point }
   | { type: 'setRotation'; deg: number }
   | { type: 'setSize'; factor: number }
   | { type: 'setSampleCount'; n: number }

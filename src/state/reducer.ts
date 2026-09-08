@@ -7,7 +7,7 @@
 
 import { angleOf, polar, radiusOf, type Point } from '../color/wheel.ts'
 import { clampToDisk } from '../geom/polygon.ts'
-import { rotate, scale } from '../geom/transform.ts'
+import { rotate, scale, translate } from '../geom/transform.ts'
 import { buildPreset, type PresetId } from '../mask/presets.ts'
 import type { Action, AppState } from './types.ts'
 
@@ -22,6 +22,7 @@ const DEFAULT_PRESET: PresetId = 'triad'
 
 export const initialState: AppState = {
   basePolygon: buildPreset('triad', 0),
+  offset: { x: 0, y: 0 },
   rotation: 0,
   size: 1,
   sampleCount: 12,
@@ -39,9 +40,9 @@ const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.m
  * changes. AppState satisfies this structurally.
  */
 export function displayPolygon(
-  mask: Pick<AppState, 'basePolygon' | 'rotation' | 'size'>,
+  mask: Pick<AppState, 'basePolygon' | 'offset' | 'rotation' | 'size'>,
 ): Point[] {
-  return scale(rotate(mask.basePolygon, mask.rotation), mask.size)
+  return scale(rotate(translate(mask.basePolygon, mask.offset), mask.rotation), mask.size)
 }
 
 /**
@@ -61,8 +62,24 @@ export function toBasePoint(p: Point, state: AppState): Point {
   const size = state.size === 0 ? MIN_SIZE : state.size
   const unscaled = { x: p.x / size, y: p.y / size }
   const r = radiusOf(unscaled.x, unscaled.y)
-  if (r === 0) return clampToDisk(unscaled)
-  return clampToDisk(polar(angleOf(unscaled.x, unscaled.y) - state.rotation, r))
+  const unrotated =
+    r === 0 ? unscaled : polar(angleOf(unscaled.x, unscaled.y) - state.rotation, r)
+  // Undo the offset last, mirroring displayPolygon applying it first.
+  return clampToDisk({ x: unrotated.x - state.offset.x, y: unrotated.y - state.offset.y })
+}
+
+/**
+ * A display-space vector expressed in base space: undo the scale, then the rotation.
+ *
+ * A vector, not a point — no offset is subtracted, because translating a difference does
+ * not change it. Used by the body drag.
+ */
+function toBaseVector(v: Point, state: AppState): Point {
+  const size = state.size === 0 ? MIN_SIZE : state.size
+  const unscaled = { x: v.x / size, y: v.y / size }
+  const r = radiusOf(unscaled.x, unscaled.y)
+  if (r === 0) return unscaled
+  return polar(angleOf(unscaled.x, unscaled.y) - state.rotation, r)
 }
 
 const samePoint = (a: Point, b: Point): boolean => a.x === b.x && a.y === b.y
@@ -81,6 +98,7 @@ export function reducer(state: AppState, action: Action): AppState {
       return {
         ...state,
         basePolygon: buildPreset(action.id, 0),
+        offset: { x: 0, y: 0 },
         rotation: 0,
         size: 1,
         preset: action.id,
@@ -120,6 +138,21 @@ export function reducer(state: AppState, action: Action): AppState {
         preset: null,
         dragging: null,
       }
+    }
+
+    /**
+     * D42: dragging the mask body. The offset itself is clamped to the disk, so a mask
+     * flung far off cannot collapse into a degenerate sliver on the rim — it stops at the
+     * edge and drags back.
+     */
+    case 'dragMask': {
+      const delta = toBaseVector(action.deltaDisplay, state)
+      const next = clampToDisk({
+        x: action.offsetAtStart.x + delta.x,
+        y: action.offsetAtStart.y + delta.y,
+      })
+      if (samePoint(next, state.offset)) return state
+      return { ...state, offset: next }
     }
 
     case 'setRotation': {

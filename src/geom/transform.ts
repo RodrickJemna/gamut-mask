@@ -5,7 +5,7 @@
  * or close it. Rotation changes the hue family, scaling changes how muted the palette is.
  */
 
-import { angleOf, polar, radiusOf } from '../color/wheel.ts'
+import { angleOf, polar, radiusOf, type Point } from '../color/wheel.ts'
 import { clampToDisk, type Polygon } from './polygon.ts'
 
 /**
@@ -32,6 +32,23 @@ export function rotate(poly: Polygon, deltaDeg: number): Polygon {
     if (r === 0) return p
     return clampToDisk(polar(angleOf(p.x, p.y) + deltaDeg, r))
   })
+}
+
+/**
+ * Move the whole mask by an offset (F5b, D42).
+ *
+ * Unlike rotate and scale this has no pivot — it is a plain translation, and it is the
+ * one transform that does NOT preserve the "radius is saturation, angle is hue" reading
+ * of a vertex's position. That is the point: the user is positioning the mask over the
+ * wheel by eye.
+ *
+ * Clamps here rather than relying on the callers: `rotate` and `scale` both short-circuit
+ * on their identity values, so at rotation 0 and size 1 nothing downstream would clamp
+ * and a dragged mask could leave the disk (D22).
+ */
+export function translate(poly: Polygon, offset: Point): Polygon {
+  if (offset.x === 0 && offset.y === 0) return poly
+  return poly.map((p) => clampToDisk({ x: p.x + offset.x, y: p.y + offset.y }))
 }
 
 /**

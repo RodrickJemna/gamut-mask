@@ -161,16 +161,166 @@ describe('state shape (D18)', () => {
     expect(JSON.parse(JSON.stringify(state))).toEqual(state)
   })
 
-  it('holds only JSON-safe values', () => {
-    for (const value of Object.values(initialState)) {
-      const ok =
-        value === null ||
-        typeof value === 'number' ||
-        typeof value === 'string' ||
-        typeof value === 'boolean' ||
-        Array.isArray(value)
-      expect(ok).toBe(true)
+  /**
+   * Checks for the things that actually break serialisation, recursively. The earlier
+   * version enumerated allowed types at the top level only and rejected plain objects,
+   * so adding `offset: {x, y}` failed it — despite that being perfectly JSON-safe.
+   */
+  it('contains no value that JSON cannot represent', () => {
+    const unsafe = (value: unknown, path: string): string[] => {
+      if (value === null) return []
+      if (value === undefined) return [`${path}: undefined`]
+      if (typeof value === 'function') return [`${path}: function`]
+      if (value instanceof Date) return [`${path}: Date`]
+      if (value instanceof Map || value instanceof Set) return [`${path}: Map/Set`]
+      if (typeof value === 'number') {
+        return Number.isFinite(value) ? [] : [`${path}: non-finite number`]
+      }
+      if (typeof value === 'string' || typeof value === 'boolean') return []
+      if (Array.isArray(value)) {
+        return value.flatMap((v, i) => unsafe(v, `${path}[${i}]`))
+      }
+      if (typeof value === 'object') {
+        if (Object.getPrototypeOf(value) !== Object.prototype) {
+          return [`${path}: class instance`]
+        }
+        return Object.entries(value).flatMap(([k, v]) => unsafe(v, `${path}.${k}`))
+      }
+      return [`${path}: ${typeof value}`]
     }
+    expect(unsafe(initialState, 'state')).toEqual([])
+  })
+})
+
+describe('mask body drag (D42)', () => {
+  /**
+   * A small mask, deliberately. The default triad's vertices sit at radius 0.82, so any
+   * meaningful drag pushes some of them past the rim and D22 clamps — which is correct,
+   * and is asserted separately below. Here the point is that an unobstructed drag moves
+   * the mask by exactly the delta.
+   */
+  const small = withState({
+    basePolygon: [polar(0, 0.3), polar(120, 0.3), polar(240, 0.3)],
+  })
+
+  it('moves the mask by the dragged delta at rotation 0, size 1', () => {
+    const before = displayPolygon(small)
+    const next = reducer(small, {
+      type: 'dragMask',
+      deltaDisplay: { x: 0.1, y: -0.2 },
+      offsetAtStart: { x: 0, y: 0 },
+    })
+    const after = displayPolygon(next)
+    after.forEach((p, i) => {
+      expect(p.x).toBeCloseTo(before[i].x + 0.1, 9)
+      expect(p.y).toBeCloseTo(before[i].y - 0.2, 9)
+    })
+  })
+
+  it('stops at the rim rather than sliding vertices off the disk (D22)', () => {
+    const next = reducer(initialState, {
+      type: 'dragMask',
+      deltaDisplay: { x: 0.1, y: -0.2 },
+      offsetAtStart: { x: 0, y: 0 },
+    })
+    const after = displayPolygon(next)
+    for (const p of after) expect(radiusOf(p.x, p.y)).toBeLessThanOrEqual(1 + 1e-12)
+    // At least one vertex of the default triad is held back by the clamp.
+    expect(after.some((p) => radiusOf(p.x, p.y) > 1 - 1e-9)).toBe(true)
+  })
+
+  /**
+   * The delta arrives in DISPLAY space but is stored in base space, so it has to be
+   * un-rotated and un-scaled. If that conversion is missing or inverted, the mask slides
+   * off at an angle to the pointer the moment either slider leaves its default — which is
+   * the failure a user would notice first.
+   */
+  it('tracks the pointer under any rotation and size', () => {
+    for (const rotation of [0, 37, 90, 214, 300]) {
+      for (const size of [0.3, 0.6, 1]) {
+        const state = { ...small, rotation, size }
+        const before = displayPolygon(state)
+        const delta = { x: 0.03, y: -0.02 }
+        const next = reducer(state, {
+          type: 'dragMask',
+          deltaDisplay: delta,
+          offsetAtStart: state.offset,
+        })
+        const after = displayPolygon(next)
+        after.forEach((p, i) => {
+          expect(p.x).toBeCloseTo(before[i].x + delta.x, 6)
+          expect(p.y).toBeCloseTo(before[i].y + delta.y, 6)
+        })
+      }
+    }
+  })
+
+  it('is reversible — dragging out and back restores the shape', () => {
+    const out = reducer(small, {
+      type: 'dragMask',
+      deltaDisplay: { x: 0.3, y: 0.2 },
+      offsetAtStart: { x: 0, y: 0 },
+    })
+    const back = reducer(out, {
+      type: 'dragMask',
+      deltaDisplay: { x: 0, y: 0 },
+      offsetAtStart: { x: 0, y: 0 },
+    })
+    expect(back.offset).toEqual({ x: 0, y: 0 })
+    // Exact, even though the outward drag clamped vertices — the clamp only ever touched
+    // the derived shape, never the stored polygon. That is what offset-as-a-scalar buys.
+    displayPolygon(back).forEach((p, i) => {
+      expect(p.x).toBeCloseTo(displayPolygon(small)[i].x, 12)
+      expect(p.y).toBeCloseTo(displayPolygon(small)[i].y, 12)
+    })
+  })
+
+  it('clamps the offset to the disk, so the mask cannot be flung away', () => {
+    const next = reducer(initialState, {
+      type: 'dragMask',
+      deltaDisplay: { x: 50, y: 50 },
+      offsetAtStart: { x: 0, y: 0 },
+    })
+    expect(radiusOf(next.offset.x, next.offset.y)).toBeLessThanOrEqual(1 + 1e-12)
+    for (const p of displayPolygon(next)) {
+      expect(radiusOf(p.x, p.y)).toBeLessThanOrEqual(1 + 1e-12)
+    }
+  })
+
+  it('is absolute, not cumulative — a repeated delta does not drift', () => {
+    const once = reducer(initialState, {
+      type: 'dragMask',
+      deltaDisplay: { x: 0.12, y: 0.03 },
+      offsetAtStart: { x: 0, y: 0 },
+    })
+    const twice = reducer(once, {
+      type: 'dragMask',
+      deltaDisplay: { x: 0.12, y: 0.03 },
+      offsetAtStart: { x: 0, y: 0 },
+    })
+    expect(twice).toBe(once)
+  })
+
+  it('keeps vertex dragging accurate once the mask has been moved', () => {
+    const moved = reducer(initialState, {
+      type: 'dragMask',
+      deltaDisplay: { x: 0.2, y: -0.15 },
+      offsetAtStart: { x: 0, y: 0 },
+    })
+    const target = { x: -0.3, y: 0.25 }
+    const next = reducer(moved, { type: 'moveVertex', index: 0, to: target })
+    const shown = displayPolygon(next)[0]
+    expect(shown.x).toBeCloseTo(target.x, 9)
+    expect(shown.y).toBeCloseTo(target.y, 9)
+  })
+
+  it('resets when a preset is loaded', () => {
+    const moved = reducer(initialState, {
+      type: 'dragMask',
+      deltaDisplay: { x: 0.3, y: 0.1 },
+      offsetAtStart: { x: 0, y: 0 },
+    })
+    expect(reducer(moved, { type: 'loadPreset', id: 'split' }).offset).toEqual({ x: 0, y: 0 })
   })
 })
 

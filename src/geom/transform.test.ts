@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { angleOf, normalizeAngle, polar, radiusOf } from '../color/wheel.ts'
 import { signedArea, type Polygon } from './polygon.ts'
-import { rotate, scale } from './transform.ts'
+import { rotate, scale, translate } from './transform.ts'
 
 /**
  * Tolerances here are measured: the polar formulation drifts by about 2e-16 in radius
@@ -157,6 +157,43 @@ describe('scale', () => {
       ...andBack.map((p, i) => Math.hypot(p.x - poly[i].x, p.y - poly[i].y)),
     )
     expect(worst).toBeGreaterThan(0.01)
+  })
+})
+
+describe('translate (D42)', () => {
+  it('a zero offset is the identity, same object', () => {
+    expect(translate(poly, { x: 0, y: 0 })).toBe(poly)
+  })
+
+  it('shifts every vertex by the offset', () => {
+    const moved = translate(poly, { x: 0.05, y: -0.04 })
+    moved.forEach((p, i) => {
+      expect(p.x).toBeCloseTo(poly[i].x + 0.05, 12)
+      expect(p.y).toBeCloseTo(poly[i].y - 0.04, 12)
+    })
+  })
+
+  it('preserves shape — area and vertex count are unchanged', () => {
+    const moved = translate(poly, { x: 0.03, y: 0.02 })
+    expect(moved).toHaveLength(poly.length)
+    expect(Math.abs(signedArea(moved))).toBeCloseTo(Math.abs(signedArea(poly)), 12)
+  })
+
+  it('clamps vertices to the disk itself (D22)', () => {
+    // rotate and scale short-circuit on their identity values, so at rotation 0 and
+    // size 1 nothing downstream would clamp a dragged mask.
+    for (const p of translate(poly, { x: 0.9, y: 0.9 })) {
+      expect(radiusOf(p.x, p.y)).toBeLessThanOrEqual(1 + 1e-12)
+    }
+  })
+
+  it('composes: two translations equal their sum, while nothing clamps', () => {
+    const twice = translate(translate(poly, { x: 0.02, y: 0.01 }), { x: 0.03, y: 0.02 })
+    const once = translate(poly, { x: 0.05, y: 0.03 })
+    twice.forEach((p, i) => {
+      expect(p.x).toBeCloseTo(once[i].x, 12)
+      expect(p.y).toBeCloseTo(once[i].y, 12)
+    })
   })
 })
 

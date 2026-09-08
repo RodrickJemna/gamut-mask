@@ -47,14 +47,22 @@ function toPath(polygon: Point[]): string {
 }
 
 type Props = {
-  /** The DISPLAY polygon — rotation and size already applied. */
+  /** The DISPLAY polygon — offset, rotation and size already applied. */
   polygon: Point[]
+  /** Current base-space offset, so a body drag can be expressed relative to its start. */
+  offset: Point
   canDelete: boolean
   dispatch: (action: Action) => void
 }
 
-export function MaskOverlay({ polygon, canDelete, dispatch }: Props) {
+export function MaskOverlay({ polygon, offset, canDelete, dispatch }: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
+  /**
+   * Where a body drag started, and the offset it started from. Held in a ref rather than
+   * in state: it is pure gesture bookkeeping, nothing renders from it, and keeping it out
+   * of the reducer means a drag frame dispatches exactly one action.
+   */
+  const bodyDrag = useRef<{ from: Point; offsetAtStart: Point } | null>(null)
 
   /**
    * Pointer events arrive in client pixels. Convert with the SVG's own matrix rather than
@@ -95,6 +103,40 @@ export function MaskOverlay({ polygon, canDelete, dispatch }: Props) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
     dispatch({ type: 'endDrag' })
+  }
+
+  /**
+   * D42 — dragging anywhere inside the mask moves the whole mask.
+   *
+   * The delta is sent with the offset the gesture started from, rather than as an
+   * increment, so the mask tracks the pointer exactly even if a move event is coalesced
+   * or dropped.
+   */
+  function onBodyDown(event: ReactPointerEvent) {
+    const at = toWheel(event)
+    if (!at) return
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    bodyDrag.current = { from: at, offsetAtStart: offset }
+  }
+
+  function onBodyMove(event: ReactPointerEvent) {
+    const drag = bodyDrag.current
+    if (!drag || !event.currentTarget.hasPointerCapture(event.pointerId)) return
+    const at = toWheel(event)
+    if (!at) return
+    dispatch({
+      type: 'dragMask',
+      deltaDisplay: { x: at.x - drag.from.x, y: at.y - drag.from.y },
+      offsetAtStart: drag.offsetAtStart,
+    })
+  }
+
+  function onBodyUp(event: ReactPointerEvent) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    bodyDrag.current = null
   }
 
   function onEdgeDown(event: ReactPointerEvent, afterIndex: number) {
@@ -156,6 +198,25 @@ export function MaskOverlay({ polygon, canDelete, dispatch }: Props) {
         ))}
       </g>
 
+      {/*
+        D42 — the mask body, invisible but grabbable, so dragging the inside moves the
+        whole mask. Drawn before the outline, edges and handles so all three keep
+        priority: grabbing a vertex or clicking an edge must never be intercepted by the
+        body underneath it. Even-odd so the grabbable region is exactly the region the
+        wash leaves unshaded.
+      */}
+      <path
+        d={toPath(polygon)}
+        fillRule="evenodd"
+        fill="transparent"
+        pointerEvents="fill"
+        style={{ cursor: 'move' }}
+        onPointerDown={onBodyDown}
+        onPointerMove={onBodyMove}
+        onPointerUp={onBodyUp}
+        onPointerCancel={onBodyUp}
+      />
+
       {/* The mask outline. Unfilled — the wash already handles the fill. */}
       <path
         d={toPath(polygon)}
@@ -163,6 +224,7 @@ export function MaskOverlay({ polygon, canDelete, dispatch }: Props) {
         stroke="var(--mask-line)"
         strokeWidth="1.5"
         vectorEffect="non-scaling-stroke"
+        pointerEvents="none"
       />
 
       {/* Invisible thick edges, for inserting a vertex between the right pair (F2). */}

@@ -89,8 +89,8 @@ export function MaskPanel({ state, dispatch }: Props) {
       <section>
         <h2>Editing</h2>
         <p className="samples-note">
-          Drag a handle to move a vertex. Click an edge to add one. Alt-click a handle to
-          remove it.
+          Drag inside the mask to move it. Drag a handle to move a vertex. Click an edge
+          to add one. Alt-click a handle to remove it.
         </p>
       </section>
     </aside>

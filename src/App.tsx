@@ -22,10 +22,10 @@ export default function App() {
    * what the mask is. The memos matter: without them, sampling would re-run on every
    * unrelated render, including every pointermove during a vertex drag.
    */
-  const { basePolygon, rotation, size, sampleCount } = state
+  const { basePolygon, offset, rotation, size, sampleCount } = state
   const polygon = useMemo(
-    () => displayPolygon({ basePolygon, rotation, size }),
-    [basePolygon, rotation, size],
+    () => displayPolygon({ basePolygon, offset, rotation, size }),
+    [basePolygon, offset, rotation, size],
   )
   const samples = useMemo(() => sampleMask(polygon, sampleCount), [polygon, sampleCount])
 
@@ -35,6 +35,7 @@ export default function App() {
         <WheelCanvas />
         <MaskOverlay
           polygon={polygon}
+          offset={offset}
           canDelete={basePolygon.length > MIN_VERTICES}
           dispatch={dispatch}
         />

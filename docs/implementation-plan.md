@@ -35,7 +35,7 @@ src/
     polygon.ts              even-odd hit test, disk clamp, area/centroid  D22, D24
                             imports the `Point` type from color/wheel.ts
     polygon.test.ts
-    transform.ts            rotate / scale about the centre               F5, D22
+    transform.ts            translate, rotate/scale about centre               F5, D22, D42
     transform.test.ts
     sample.ts               deterministic sampling: grid + Lloyd          D17, D25
     sample.test.ts

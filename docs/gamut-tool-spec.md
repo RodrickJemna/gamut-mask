@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.12
+Verzió: 0.13
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -43,7 +43,7 @@ Referencia: James Gurney, *Color and Light* — gamut masking, YURMBY-kör.
 | F2 | Szabad polygon szerkesztő: vertex add / del / drag, min. 3 pont | SVG overlay |
 | F3 | Hat anchor-sugár + R Y G C B M betűk | állandó, nem elrejthető |
 | F4 | Mask presetek: triád, split-komplementer, analóg ék, atmoszférikus | paraméteres |
-| F5 | Mask rotálása a közép körül + skálázása | Gurney-workflow |
+| F5 | Mask rotálása a közép körül + skálázása + **mozgatása** (D42) | Gurney-workflow |
 | F6 | A maskon belüli színek listája: swatch + hex + világosság + telítettség | auto rács, N csúszka |
 | F7 | Semleges (mid-grey) UI chrome | szimultán kontraszt miatt követelmény |
 
@@ -133,6 +133,25 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D42 — A mask mozgatása húzással**: a maskon *belül* húzva az egész mask elmozdul a
+  körön. A vertexeken és az éleken való húzás/kattintás változatlan.
+  - **Hol tárolódik**: `offset: Point` az állapotban, base-térben, **a rotáció és a
+    skálázás előtt** alkalmazva. Így a rotálás továbbra is *körbeviszi* az elcsúsztatott
+    maskot a körön, nem a helyben forgatja — ez a természetes olvasat, és egyben az, amit
+    a D38 (atmoszférikus preset) is feltételez.
+  - **Miért skalár, nem a vertexekbe beégetve**: ugyanaz az érv, mint a rotációnál és a
+    méretnél. A D22 clamp lossy: a peremre húzott mask vertexei odaragadnak, és ha ezt a
+    tárolt polygon szenvedné el, a visszahúzás nem állítaná helyre az alakot. Mérve:
+    böngészőben a maskot a peremig húzva egy vertex tényleg beragad, visszahúzva viszont
+    az alak **pontosan** visszaáll (max. eltérés 0).
+  - **Az `offset` a diszkre van clampelve**, tehát a mask nem hajítható el a körről —
+    a peremen megáll és visszahúzható.
+  - **Amit felad**: egy elcsúsztatott masknál a vertex „rádiusz = telítettség, szög =
+    hue" olvasata már nem a mask saját középpontjához képest értendő. Ez szándékos: a
+    felhasználó szemre pozicionál.
+  - **A húzás abszolút, nem inkrementális**: az akció a *kezdő* offsetet és a
+    display-térbeli deltát viszi, nem lépésenkénti növekményt, így egy elveszett vagy
+    összevont pointermove nem visz el a mask alól a kurzort.
 - **D41 — Egy-viewportos layout**: a három régió (kör, panel, színlista) egymás mellett,
   `100dvh` magasságra kötve, lapszintű scroll nélkül. Ez felülírja a 6. pont eredeti
   „színlista alatta" tagolását.
@@ -272,3 +291,5 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   raszteres a Real Colors rácsokon). Minta-lista wedge-enként csoportosítva.
 - 0.12 — **egy-viewportos layout (D41)**: a színlista a kör mellé került, lapszintű
   scroll nincs. 1280×720 és 1512×860 mellett is elfér, csonkolás nélkül.
+- 0.13 — **mask mozgatása húzással (D42)**: `offset` skalár az állapotban, a rotáció és a
+  méret előtt alkalmazva; a diszkre clampelve; a húzás abszolút.
