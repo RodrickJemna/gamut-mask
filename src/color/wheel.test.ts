@@ -12,6 +12,8 @@ import {
   rimSrgb,
   sample,
   sampleSrgb8,
+  wedgeIndexOf,
+  wedgeOffsetOf,
 } from './wheel.ts'
 
 const chroma = (c: Oklab): number => Math.hypot(c.a, c.b)
@@ -75,6 +77,55 @@ describe('anchors (D21, D34)', () => {
     expect(normalizeAngle(at('R') + 180)).toBe(at('C'))
     expect(normalizeAngle(at('Y') + 180)).toBe(at('B'))
     expect(normalizeAngle(at('G') + 180)).toBe(at('M'))
+  })
+})
+
+describe('wedges', () => {
+  it('assigns each anchor to its own wedge', () => {
+    ANCHORS.forEach((anchor, i) => {
+      expect(wedgeIndexOf(anchor.angle)).toBe(i)
+    })
+  })
+
+  it('centres each wedge on its anchor', () => {
+    ANCHORS.forEach((anchor, i) => {
+      expect(wedgeIndexOf(anchor.angle - 29.9)).toBe(i)
+      expect(wedgeIndexOf(anchor.angle + 29.9)).toBe(i)
+    })
+  })
+
+  it('puts the boundary in the next wedge, so wedges do not overlap', () => {
+    expect(wedgeIndexOf(30)).toBe(1)
+    expect(wedgeIndexOf(29.999)).toBe(0)
+  })
+
+  it('keeps Red whole across the 0/360 seam', () => {
+    // The default analogous wedge spans roughly 334..26, which is the case that used to
+    // split across both ends of the sample list.
+    for (const theta of [330, 345, 359, 0, 15, 29]) {
+      expect(wedgeIndexOf(theta)).toBe(0)
+    }
+  })
+
+  it('covers the whole circle with exactly six wedges', () => {
+    const seen = new Set<number>()
+    for (let theta = 0; theta < 360; theta += 0.25) seen.add(wedgeIndexOf(theta))
+    expect(seen.size).toBe(6)
+  })
+
+  it('orders within a wedge in wheel order, seam included', () => {
+    // 339 comes before 0 comes before 21 on the wheel; raw angle would reverse that.
+    const offsets = [339, 0, 21].map(wedgeOffsetOf)
+    expect(offsets[0]).toBeLessThan(offsets[1])
+    expect(offsets[1]).toBeLessThan(offsets[2])
+  })
+
+  it('offset stays within 0..60 for every angle', () => {
+    for (let theta = -720; theta < 720; theta += 3.3) {
+      const o = wedgeOffsetOf(theta)
+      expect(o).toBeGreaterThanOrEqual(0)
+      expect(o).toBeLessThan(60)
+    }
   })
 })
 

@@ -20,15 +20,44 @@ import {
 
 export type Point = { x: number; y: number }
 
-/** D21: red up, clockwise, exactly 60 degrees apart. D34: all six always drawn. */
+/**
+ * D21: red up, clockwise, exactly 60 degrees apart. D34: all six always drawn.
+ *
+ * `name` is display text (English, D26) used by the sample list's wedge headings. It sits
+ * here rather than in a component because it belongs with the letter it labels.
+ */
 export const ANCHORS = [
-  { letter: 'R', angle: 0 },
-  { letter: 'Y', angle: 60 },
-  { letter: 'G', angle: 120 },
-  { letter: 'C', angle: 180 },
-  { letter: 'B', angle: 240 },
-  { letter: 'M', angle: 300 },
+  { letter: 'R', angle: 0, name: 'Red' },
+  { letter: 'Y', angle: 60, name: 'Yellow' },
+  { letter: 'G', angle: 120, name: 'Green' },
+  { letter: 'C', angle: 180, name: 'Cyan' },
+  { letter: 'B', angle: 240, name: 'Blue' },
+  { letter: 'M', angle: 300, name: 'Magenta' },
 ] as const
+
+/** Width of one anchor's wedge in degrees — the six divide the wheel exactly. */
+export const WEDGE_SPAN = 60
+
+/**
+ * Which anchor's wedge an angle falls in, as an index into ANCHORS.
+ *
+ * Each wedge is centred on its anchor, so it runs from anchor - 30 to anchor + 30. Red's
+ * wedge therefore straddles the 0/360 seam: 330 and 10 are both Red.
+ */
+export function wedgeIndexOf(theta: number): number {
+  return Math.floor((normalizeAngle(theta) + WEDGE_SPAN / 2) / WEDGE_SPAN) % ANCHORS.length
+}
+
+/**
+ * Position within its own wedge, 0 to 60, measured from the wedge's leading edge.
+ *
+ * This is what lets the Red wedge be ordered correctly despite the seam: 339 maps to 9
+ * and 0 maps to 30, so they sort in the order they appear on the wheel. Sorting Red by
+ * raw angle instead splits it across both ends of the list.
+ */
+export function wedgeOffsetOf(theta: number): number {
+  return (normalizeAngle(theta) + WEDGE_SPAN / 2) % WEDGE_SPAN
+}
 
 /** D35: the neutral centre. */
 export const CENTRE_OKLAB: Oklab = { L: 0.6, a: 0, b: 0 }
