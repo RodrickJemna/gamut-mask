@@ -19,7 +19,7 @@ Reference: James Gurney, *Color and Light* — gamut masking.
 - Matches each colour against two brands — AK Interactive (647 paints) and Vallejo
   (650) — listing whichever are within 5%, or saying so plainly when neither is
 - Drag inside the mask to move it; drag handles to reshape it
-- Saves a printable A4 PDF sheet of the current wheel, mask and palette
+- Saves the current wheel, mask and palette as a printable A4 PDF or a single JPEG
 
 ## What it deliberately does not do
 
@@ -76,11 +76,17 @@ Quick Look to rasterise pages — its swatch colours are sampled from rendered p
 because on some pages the vector fill cannot be resolved to RGB. All build-time only;
 nothing in the app imports any of it.
 
-## The PDF sheet
+## Exporting a sheet
 
-The Save PDF button writes an A4 sheet — the wheel with the mask, the mask settings, and
-the colours with their paint matches — named `gamut-<hash>.pdf` from the colours
-themselves, so re-exporting the same palette does not accumulate near-duplicates.
+Two buttons write the same sheet — the wheel with the mask, the mask settings, and the
+colours with their paint matches — as either a paginated A4 PDF or one continuous JPEG.
+Both are named `gamut-<hash>.<ext>` from the colours themselves, so re-exporting the same
+palette does not accumulate near-duplicates and the two formats of one palette sort
+together.
+
+The layout is written once and rendered through a small `Surface` interface that both the
+PDF content stream and a canvas implement. Two separate layouts would have drifted apart
+on the first change to either.
 
 It lands in your browser's download folder. A web page cannot create a folder next to its
 own HTML file and write into it: there is no such API, and the closest thing needs a

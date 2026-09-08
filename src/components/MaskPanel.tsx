@@ -20,19 +20,21 @@ type Props = {
   dispatch: (action: Action) => void
   /** Builds and downloads the PDF sheet; returns the filename used (D43). */
   onSaveSheet: () => string
+  /** Same sheet as a single JPEG; returns the filename used (D45). */
+  onSaveJpeg: () => string
 }
 
-export function MaskPanel({ state, dispatch, onSaveSheet }: Props) {
+export function MaskPanel({ state, dispatch, onSaveSheet, onSaveJpeg }: Props) {
   const [saved, setSaved] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  function save() {
+  function save(build: () => string) {
     setSaving(true)
     // Yield a frame so the button repaints as "Saving..." before the wheel is re-rendered
-    // at print resolution, which takes a couple of hundred milliseconds.
+    // at export resolution, which takes a couple of hundred milliseconds.
     window.setTimeout(() => {
       try {
-        setSaved(onSaveSheet())
+        setSaved(build())
       } finally {
         setSaving(false)
       }
@@ -106,9 +108,14 @@ export function MaskPanel({ state, dispatch, onSaveSheet }: Props) {
 
       <section>
         <h2>Export</h2>
-        <div className="presets">
-          <button type="button" onClick={save} disabled={saving}>
-            {saving ? 'Saving...' : 'Save PDF sheet'}
+        {/* Side by side: stacked, the two buttons cost enough height to push the
+            D10 caveat below the fold on a 1280x720 screen. */}
+        <div className="export-buttons">
+          <button type="button" onClick={() => save(onSaveSheet)} disabled={saving}>
+            {saving ? '...' : 'Save PDF'}
+          </button>
+          <button type="button" onClick={() => save(onSaveJpeg)} disabled={saving}>
+            {saving ? '...' : 'Save JPEG'}
           </button>
         </div>
         {saved && (
@@ -118,13 +125,12 @@ export function MaskPanel({ state, dispatch, onSaveSheet }: Props) {
         )}
       </section>
 
-      <section>
-        <h2>Editing</h2>
-        <p className="samples-note">
-          Drag inside the mask to move it. Drag a handle to move a vertex. Click an edge
-          to add one. Alt-click a handle to remove it.
-        </p>
-      </section>
+      {/* No heading: the panel has to leave room for the D10 caveat beneath it, and on a
+          1280x720 screen a fifth section heading is what pushes the caveat off. */}
+      <p className="samples-note">
+        Drag the mask to move it, a handle to reshape it. Click an edge to add a vertex,
+        alt-click to remove.
+      </p>
     </aside>
   )
 }

@@ -24,7 +24,17 @@ const RAY = 'rgba(0, 0, 0, 0.22)'
 const OUTLINE = '#000000'
 const WASH = 'rgba(0, 0, 0, 0.5)'
 
-export type WheelImage = { jpeg: Uint8Array; width: number; height: number }
+export type WheelImage = {
+  jpeg: Uint8Array
+  width: number
+  height: number
+  /**
+   * The canvas the JPEG was encoded from. The JPEG export draws this directly rather
+   * than decoding the bytes back, which would be asynchronous; both exports therefore
+   * show the same pixels.
+   */
+  canvas: HTMLCanvasElement
+}
 
 function base64ToBytes(base64: string): Uint8Array {
   const binary = atob(base64)
@@ -125,5 +135,6 @@ export function renderWheelImage(polygon: Point[], side = 1100): WheelImage {
     jpeg: base64ToBytes(dataUrl.slice(dataUrl.indexOf(',') + 1)),
     width: side,
     height: side,
+    canvas,
   }
 }

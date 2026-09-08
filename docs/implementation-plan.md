@@ -44,11 +44,14 @@ src/
     presets.ts              4 parametric presets                          F4, D23
 
   export/
-    pdf.ts                  minimal PDF writer, zero deps                 D43
+    surface.ts              the drawing interface both outputs target     D43, D45
+    pdf.ts                  minimal PDF writer, zero deps; Content        D43
     pdf.test.ts
-    sheet.ts                page layout (DOM-free, so it is inspectable)  D43
+    canvasSurface.ts        canvas + measuring implementations            D45
+    sheet.ts                the layout, surface-agnostic and DOM-free     D43, D45
+    jpeg.ts                 single-sheet JPEG (two-pass, for height)      D45
     wheelImage.ts           wheel + mask to an offscreen canvas           D43
-    name.ts                 colour-derived filename
+    name.ts                 colour-derived filename, shared across formats
     name.test.ts
     download.ts             hands the file to the browser
 
@@ -195,6 +198,8 @@ All three questions that were open during the build are settled, in spec version
   Scale up to edit. The spec has no notion of handle density.
 - **Export lands in the browser's download folder**, not beside the HTML. No page can
   create a folder next to itself; see D43.
+- **At 1280x720 the colour list still scrolls internally** with two brand rows per card;
+  the wheel, controls and the D10 caveat all stay visible. It fits fully at 1512x860.
 - **Paint coverage is partial, by brand.** AK: 647 from the equivalence tables (3GEN plus
   the AFV/FIG/AIR series) and the Real Colors grids; excluded are the pigment powders and
   auxiliary products, and two rows with no swatch at all (AK11001 White, AK11191 Gold).

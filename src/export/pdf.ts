@@ -18,6 +18,8 @@
  *    them as mojibake.
  */
 
+import type { Surface, TextStyle } from './surface.ts'
+
 const ENCODER = new TextEncoder()
 
 /** cp1252 positions for the characters that are NOT at their Unicode code point. */
@@ -197,13 +199,13 @@ export function buildPdf(doc: PdfDocument): Uint8Array {
 }
 
 /**
- * Content-stream builder using TOP-DOWN coordinates.
+ * Content-stream builder using TOP-DOWN coordinates. Implements `Surface`.
  *
  * PDF's own origin is bottom-left with y increasing upward, which fights every layout
  * calculation written the way a page is read. Every method here takes y from the top and
  * converts once, at the boundary.
  */
-export class Content {
+export class Content implements Surface {
   private parts: Uint8Array[] = []
   private readonly heightPt: number
 
@@ -246,12 +248,7 @@ export class Content {
   }
 
   /** `top` is the text baseline measured from the top of the page. */
-  text(
-    x: number,
-    top: number,
-    value: string,
-    opts: { size?: number; bold?: boolean; hex?: string } = {},
-  ): this {
+  text(x: number, top: number, value: string, opts: TextStyle = {}): this {
     const size = opts.size ?? 9
     const [r, g, b] = rgbFromHex(opts.hex ?? '#000000')
     this.parts.push(ascii(`BT ${r} ${g} ${b} rg /${opts.bold ? 'F2' : 'F1'} ${size} Tf ${x} ${this.y(top)} Td `))
@@ -264,6 +261,10 @@ export class Content {
   image(x: number, top: number, w: number, h: number): this {
     this.op(`q ${w} 0 0 ${h} ${x} ${this.y(top + h)} cm /Im0 Do Q\n`)
     return this
+  }
+
+  measure(value: string, size: number, bold = false): number {
+    return textWidth(value, size, bold)
   }
 
   build(): Uint8Array {

@@ -21,7 +21,8 @@ import {
   MATCH_TOLERANCE_PERCENT,
 } from '../paints/match.ts'
 import { BRAND_TAG } from '../paints/types.ts'
-import { buildPdf, Content, textWidth, type PdfImage } from './pdf.ts'
+import { buildPdf, Content, type PdfImage } from './pdf.ts'
+import type { Surface } from './surface.ts'
 
 // A4 portrait.
 const PAGE_W = 595.28
@@ -44,9 +45,10 @@ const MUTED = '#666666'
 const DIM = '#8c8c8c'
 const RULE = '#cccccc'
 
-export type SheetInput = {
-  /** The wheel and mask, pre-rendered — see `renderWheelImage`. */
-  image: PdfImage
+export const SHEET_WIDTH_PT = PAGE_W
+export const SHEET_MARGIN_PT = MARGIN
+
+export type SheetContent = {
   samples: Sample[]
   polygon: { x: number; y: number }[]
   preset: string | null
@@ -55,34 +57,51 @@ export type SheetInput = {
   requested: number
 }
 
-/** Trims to fit `maxWidth`, appending an ellipsis when it has to cut. */
-function fit(value: string, maxWidth: number, size: number): string {
-  if (textWidth(value, size) <= maxWidth) return value
+export type SheetInput = SheetContent & {
+  /** The wheel and mask, pre-rendered — see `renderWheelImage`. */
+  image: PdfImage
+}
+
+/** Trims to fit `maxWidth` on this surface, appending an ellipsis when it has to cut. */
+function fit(s: Surface, value: string, maxWidth: number, size: number): string {
+  if (s.measure(value, size) <= maxWidth) return value
   let cut = value
-  while (cut.length > 1 && textWidth(`${cut}...`, size) > maxWidth) {
+  while (cut.length > 1 && s.measure(`${cut}...`, size) > maxWidth) {
     cut = cut.slice(0, -1)
   }
   return `${cut}...`
 }
 
-export function buildSheet(input: SheetInput): Uint8Array {
-  const { image, samples, polygon, preset, rotation, size, requested } = input
-
+export type LayoutOptions = {
   /**
-   * Pages are emitted as the layout runs, and a new one begins whenever the next block
-   * would cross the footer. Paginating rather than shrinking to fit: at 32 colours with
-   * two brands the content genuinely does not fit on one page, and the alternative was
-   * truncating the paint names the sheet exists to carry.
+   * Where content must stop. For the PDF this is the page footer and crossing it starts a
+   * new page; for the single-sheet JPEG it is effectively unbounded.
    */
-  const pages: Content[] = []
-  let c = new Content(PAGE_H)
+  footerTop: number
+  /** Called when content would cross `footerTop`; returns the surface to continue on. */
+  onPageBreak?: () => Surface
+}
+
+/**
+ * Draws the sheet, returning the y of the bottom of the content.
+ *
+ * Surface-agnostic and used twice per JPEG export: once against a measuring surface to
+ * discover the height, then against the real canvas.
+ */
+export function layoutSheet(
+  surface: Surface,
+  input: SheetContent,
+  options: LayoutOptions,
+): number {
+  const { samples, polygon, preset, rotation, size, requested } = input
+  let c = surface
   let y = 0
 
-  const footer = () => {
-    c.line(MARGIN, FOOTER_TOP + 8, PAGE_W - MARGIN, FOOTER_TOP + 8, RULE, 0.5)
+  const footer = (bottom: number) => {
+    c.line(MARGIN, bottom + 8, PAGE_W - MARGIN, bottom + 8, RULE, 0.5)
     c.text(
       MARGIN,
-      FOOTER_TOP + 18,
+      bottom + 18,
       'Assumes sRGB. On an uncalibrated monitor this plans relative harmony; '
         + 'it does not predict absolute paint colour.',
       { size: 7, hex: DIM },
@@ -97,24 +116,21 @@ export function buildSheet(input: SheetInput): Uint8Array {
       bold: true,
       hex: TEXT,
     })
-    c.text(PAGE_W - MARGIN - textWidth(stamp, 8), y, stamp, { size: 8, hex: DIM })
+    c.text(PAGE_W - MARGIN - c.measure(stamp, 8), y, stamp, { size: 8, hex: DIM })
     y += 10
     c.line(MARGIN, y, PAGE_W - MARGIN, y, RULE, 0.8)
   }
 
-  /** Starts a new page when `needed` points would not fit above the footer. */
   const ensure = (needed: number) => {
-    if (y + needed <= FOOTER_TOP) return
-    footer()
-    pages.push(c)
-    c = new Content(PAGE_H)
+    if (!options.onPageBreak || y + needed <= options.footerTop) return
+    footer(options.footerTop)
+    c = options.onPageBreak()
     heading(true)
     y += 18
   }
 
   heading(false)
 
-  // Wheel on the left, mask settings to its right.
   const wheelTop = y + 16
   c.image(MARGIN, wheelTop, WHEEL_SIZE, WHEEL_SIZE)
 
@@ -153,7 +169,6 @@ export function buildSheet(input: SheetInput): Uint8Array {
     infoY += 11
   }
 
-  // Colours, grouped by wedge exactly as the screen groups them.
   y = wheelTop + WHEEL_SIZE + 30
   const buckets: Sample[][] = ANCHORS.map(() => [])
   for (const s of samples) buckets[wedgeIndexOf(s.theta)].push(s)
@@ -167,7 +182,6 @@ export function buildSheet(input: SheetInput): Uint8Array {
     const bucket = buckets[w]
     if (bucket.length === 0) continue
 
-    // Keep a heading with at least its first row of entries.
     ensure(18 + ENTRY_H)
     c.text(MARGIN, y, `${ANCHORS[w].letter}  ${ANCHORS[w].name.toUpperCase()}`, {
       size: 8,
@@ -179,7 +193,6 @@ export function buildSheet(input: SheetInput): Uint8Array {
     c.line(MARGIN, y, PAGE_W - MARGIN, y, RULE, 0.5)
     y += 14
 
-    // Entries flow row by row, so a long wedge can break across pages.
     for (let row = 0; row * cols < bucket.length; row++) {
       ensure(ENTRY_H)
       const top = y
@@ -193,20 +206,36 @@ export function buildSheet(input: SheetInput): Uint8Array {
     y += 10
   }
 
-  footer()
-  pages.push(c)
+  const bottom = options.onPageBreak ? options.footerTop : y
+  footer(bottom)
+  return bottom + 22
+}
+
+export function buildSheet(input: SheetInput): Uint8Array {
+  const pages: Content[] = []
+  let current = new Content(PAGE_H)
+  pages.push(current)
+
+  layoutSheet(current, input, {
+    footerTop: FOOTER_TOP,
+    onPageBreak: () => {
+      current = new Content(PAGE_H)
+      pages.push(current)
+      return current
+    },
+  })
 
   return buildPdf({
     widthPt: PAGE_W,
     heightPt: PAGE_H,
     pages: pages.map((page) => ({ operators: page.build() })),
-    image,
+    image: input.image,
     title: 'Gamut Mask',
   })
 }
 
 /** One colour: its swatch and readings, then a line per matched brand (D44). */
-function drawEntry(c: Content, sample: Sample, x: number, top: number, colW: number): void {
+function drawEntry(c: Surface, sample: Sample, x: number, top: number, colW: number): void {
   const hex = toHex(sample.rgb8)
   c.rect(x, top - SWATCH + 2, SWATCH, SWATCH, hex)
   c.strokeRect(x, top - SWATCH + 2, SWATCH, SWATCH, RULE, 0.4)
@@ -214,24 +243,24 @@ function drawEntry(c: Content, sample: Sample, x: number, top: number, colW: num
   const textX = x + SWATCH + 6
   c.text(textX, top, hex, { size: 8.5, hex: TEXT })
   const nums = `L ${lightnessLabel(sample.oklab.L)}   S ${saturationLabel(sample.t)}%`
-  c.text(x + colW - 20 - textWidth(nums, 7.5), top, nums, { size: 7.5, hex: DIM })
+  c.text(x + colW - 20 - c.measure(nums, 7.5), top, nums, { size: 7.5, hex: DIM })
 
   const matches = matchingPaints(sample.oklab)
   if (matches.length === 0) {
     const closest = closestOverall(sample.oklab)
     const delta = `${differencePercent(closest.distance)}%`
     c.text(textX, top + 9, 'No paint found', { size: 7.5, hex: DIM })
-    c.text(x + colW - 20 - textWidth(delta, 7.5), top + 9, delta, { size: 7.5, hex: DIM })
+    c.text(x + colW - 20 - c.measure(delta, 7.5), top + 9, delta, { size: 7.5, hex: DIM })
     return
   }
   matches.forEach((m, row) => {
     const lineY = top + 9 + row * 9
     const delta = `${differencePercent(m.distance)}%`
-    const deltaX = x + colW - 20 - textWidth(delta, 7.5)
+    const deltaX = x + colW - 20 - c.measure(delta, 7.5)
     c.text(textX, lineY, BRAND_TAG[m.paint.brand], { size: 6.5, bold: true, hex: DIM })
     c.text(textX + 16, lineY, m.paint.ref, { size: 7.5, bold: true, hex: TEXT })
     const nameX = textX + 16 + 42
-    c.text(nameX, lineY, fit(m.paint.name, deltaX - nameX - 6, 7.5), {
+    c.text(nameX, lineY, fit(c, m.paint.name, deltaX - nameX - 6, 7.5), {
       size: 7.5,
       hex: MUTED,
     })

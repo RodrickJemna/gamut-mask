@@ -22,12 +22,16 @@ function fnv1a(input: string): number {
 }
 
 /**
- * `gamut-<8 hex chars>.pdf`, keyed on the ordered list of colours.
+ * `gamut-<8 hex chars>.<ext>`, keyed on the ordered list of colours.
  *
  * Order is included rather than sorted away, because two masks holding the same colours
  * in a different arrangement around the wheel are different palettes to plan from.
+ *
+ * The two export formats share the hash deliberately: the same palette saved as a PDF and
+ * as a JPEG gives `gamut-eb2834a9.pdf` and `gamut-eb2834a9.jpg`, which sort together and
+ * are obviously the same sheet.
  */
-export function sheetFileName(hexes: readonly string[]): string {
+export function sheetFileName(hexes: readonly string[], extension: string): string {
   const key = hexes.join('-')
-  return `gamut-${fnv1a(key).toString(16).padStart(8, '0')}.pdf`
+  return `gamut-${fnv1a(key).toString(16).padStart(8, '0')}.${extension}`
 }

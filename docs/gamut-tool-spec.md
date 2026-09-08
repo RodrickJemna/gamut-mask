@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.15
+Verzió: 0.16
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -132,6 +132,23 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D45 — JPEG-lap export**: ugyanaz a lap, mint a PDF (D43), egyetlen JPEG-ként.
+  - **Egy layout, két kimenet**: a pozicionáló kód közös, egy `Surface` interfészen
+    keresztül — a PDF `Content` és a `CanvasSurface` ugyanazt implementálja. Két külön
+    layout (egy PDF-hez, egy canvashoz) az első változtatásnál elcsúszott volna.
+  - **Minden felület a saját metrikájával mér** (`measure`): a PDF a base-14 közelítéssel,
+    a canvas `measureText`-tel. Így a jobbra igazított számok és a levágott festéknevek
+    mindkét kimenetben helyesek, nem csak az egyikben.
+  - **A JPEG nincs lapokra tördelve** — egy folytonos lap. Egy képnek nincsenek lapjai,
+    amiket a néző lapozhatna. Következmény: a magasság csak a layout lefutása után derül
+    ki, a canvasnak viszont előre kell a méret, ezért a layout **kétszer** fut: egyszer
+    egy csak-mérő felületen, majd a valódi canvason.
+  - **A kör ugyanabból a rendererből jön**, és abból a canvasból van kirajzolva, amiből a
+    JPEG-je kódolódott — nem a bájtok visszadekódolásából, mert az aszinkron. Így a két
+    export nem tud eltérni abban, hogy hogyan állt a mask.
+  - **Fájlnév**: ugyanaz a hash, más kiterjesztés (`gamut-eb2834a9.pdf` /
+    `gamut-eb2834a9.jpg`), tehát a pár egymás mellé rendeződik és látszik, hogy ugyanaz a
+    lap. 2,5× skála, ~1490px széles, ~208 KB.
 - **D44 — Két gyártó, brandenként külön illesztés**: minden mintához az AK **és** a
   Vallejo katalógusból is a legközelebbi festék, és a lista azt sorolja fel, amelyik az
   5%-os toleranciába esik — mindkettőt, ha mindkettő, egyet, ha csak egy, és
@@ -346,3 +363,6 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   Mellékhatásként 35 elrontott festéknév javítva a katalógus-kinyerésben.
 - 0.15 — **második gyártó (D44)**: 650 Vallejo szín, brandenként külön illesztés. A PDF-író
   többoldalassá tett, mert két brand sorával 32 színnél a tartalom nem fér egy lapra.
+- 0.16 — **JPEG-lap export (D45)**: közös layout a PDF-fel egy `Surface` absztrakción át.
+  A panel tömörítve, hogy a második export-gomb után a D10-es caveat 1280×720-on is
+  látszódjon.

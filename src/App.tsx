@@ -15,6 +15,7 @@ import { toHex } from './color/format.ts'
 import { downloadFile } from './export/download.ts'
 import { sheetFileName } from './export/name.ts'
 import { PRESETS } from './mask/presets.ts'
+import { buildSheetJpeg } from './export/jpeg.ts'
 import { buildSheet } from './export/sheet.ts'
 import { renderWheelImage } from './export/wheelImage.ts'
 import { sampleMask } from './geom/sample.ts'
@@ -35,29 +36,38 @@ export default function App() {
   )
   const samples = useMemo(() => sampleMask(polygon, sampleCount), [polygon, sampleCount])
 
+  const sheetContent = useMemo(
+    () => ({
+      samples,
+      polygon,
+      preset: PRESETS.find((p) => p.id === state.preset)?.label ?? null,
+      rotation,
+      size,
+      requested: sampleCount,
+    }),
+    [samples, polygon, state.preset, rotation, size, sampleCount],
+  )
+
   /**
-   * D43 — build the PDF sheet and hand it to the browser's download flow. The filename
+   * D43, D45 — build the sheet and hand it to the browser's download flow. The filename
    * is derived from the colours, so re-exporting the same palette does not accumulate
-   * near-duplicates.
+   * near-duplicates, and both formats share the hash.
    */
   const saveSheet = useCallback((): string => {
-    const fileName = sheetFileName(samples.map((s) => toHex(s.rgb8)))
+    const fileName = sheetFileName(samples.map((s) => toHex(s.rgb8)), 'pdf')
     downloadFile(
-      buildSheet({
-        image: renderWheelImage(polygon),
-        samples,
-        polygon,
-        // The human label, not the id — the sheet is read by a person.
-        preset: PRESETS.find((p) => p.id === state.preset)?.label ?? null,
-        rotation,
-        size,
-        requested: sampleCount,
-      }),
+      buildSheet({ ...sheetContent, image: renderWheelImage(polygon) }),
       fileName,
       'application/pdf',
     )
     return fileName
-  }, [samples, polygon, state.preset, rotation, size, sampleCount])
+  }, [samples, polygon, sheetContent])
+
+  const saveJpeg = useCallback((): string => {
+    const fileName = sheetFileName(samples.map((s) => toHex(s.rgb8)), 'jpg')
+    downloadFile(buildSheetJpeg(sheetContent), fileName, 'image/jpeg')
+    return fileName
+  }, [samples, sheetContent])
 
   return (
     <main className="app">
@@ -71,16 +81,21 @@ export default function App() {
         />
       </div>
       <div className="side">
-        <MaskPanel state={state} dispatch={dispatch} onSaveSheet={saveSheet} />
+        <MaskPanel
+          state={state}
+          dispatch={dispatch}
+          onSaveSheet={saveSheet}
+          onSaveJpeg={saveJpeg}
+        />
         {/*
           D10 requires the sRGB assumption to be stated in the UI. It lives here rather
           than above the colour list so it stays visible without competing for the room
           the list needs.
         */}
         <p className="caveat">
-          Assumes sRGB. On an uncalibrated monitor this plans relative harmony; it does
-          not predict absolute paint colour. Paint matches use the catalogue&apos;s
-          printed swatches, not measured paint — a starting point, not a colour reading.
+          Assumes sRGB: on an uncalibrated monitor this plans relative harmony, it does
+          not predict paint colour. Matches use printed catalogue swatches, not measured
+          paint.
         </p>
       </div>
       <SampleList samples={samples} requested={sampleCount} />

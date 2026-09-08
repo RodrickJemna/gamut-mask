@@ -79,8 +79,8 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 16px;
+  gap: 14px;
+  padding: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -95,6 +95,31 @@
 .presets {
   display: grid;
   gap: 4px;
+}
+
+/* Two export buttons on one row — see the note in MaskPanel. */
+.export-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.export-buttons button {
+  padding: 7px 6px;
+  text-align: center;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.export-buttons button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.export-buttons button:disabled {
+  color: var(--text-dim);
+  cursor: progress;
 }
 
 .presets button {
@@ -178,7 +203,7 @@
   flex-direction: column;
   /* Tight: six section gaps are worth ~30px of list height, which at 1280x720 is the
      difference between the default twelve colours fitting and not. */
-  gap: 10px;
+  gap: 8px;
 }
 
 /*
@@ -255,9 +280,10 @@
     "paints paints paints";
   gap: 0 8px;
   align-items: center;
-  /* Tight on purpose: card height is what decides whether the whole list fits on screen. */
-  padding: 5px 6px;
-  line-height: 1.35;
+  /* Tight on purpose: card height is what decides whether the whole list fits on screen,
+     and each card now carries up to two paint lines (D44). */
+  padding: 4px 6px;
+  line-height: 1.28;
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--border);
