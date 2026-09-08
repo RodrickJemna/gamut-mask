@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.13
+Verzió: 0.14
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -106,7 +106,6 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
 - **D10 — A pipeline sRGB-t feltételez.** Kalibrálatlan monitor → relatív harmóniát
   tervez, nem absztolút festékszínt jósol. A UI-ban kiírva.
 - **D12 — Nincs kép-input, sem később.**
-- **D13 — Nincs export v1-ben.** Kattintásra hex a vágólapra, ennyi.
 - **D18 — Az állapot JSON-serializálható alakú**, hogy a későbbi mentés ne igényeljen
   refaktort. Perzisztencia-kód viszont nincs benne.
 - **D8 — Nincs backend, account, router.** Statikus, offline app.
@@ -133,6 +132,30 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D43 — PDF-lap export (a D13 részleges visszavonása)**: egy gomb legenerálja az
+  aktuális állapot nyomtatható A4-es lapját — a kör a maskkal, a mask beállításai, és a
+  maskon belüli színek a festék-találatokkal.
+  - **Hová kerül**: a böngésző letöltési mappájába. Egy weboldal **nem** tud a saját
+    HTML-je mellé mappát létrehozni és oda írni — ilyen API nincs; ami a legközelebb áll
+    hozzá (File System Access), az felhasználó által adott könyvtár-handle-t igényel,
+    Safariban nincs meg, és `file://` originon amúgy sem működik. A letöltés az egyetlen
+    elérhető mechanizmus, és a szerző ezt választotta.
+  - **Fájlnév**: `gamut-<8 hex>.pdf`, a színek sorrendezett listájából FNV-1a hash-elve.
+    Determinisztikus: ugyanaz a paletta ugyanazt a nevet adja, tehát egy már mentett
+    paletta újraexportálása nem szemeteli tele a mappát közel-azonos lapokkal. A sorrend
+    beleszámít, mert két azonos színkészlet más elrendezésben más paletta.
+  - **Nincs runtime dependency** (D37): a PDF-író saját, ~250 sor. Egy oldal, kitöltött
+    téglalapok, base-14 Helvetica és egy beágyazott JPEG — ez nem indokol jsPDF-et.
+  - **A kör bitmapként, minden más igazi PDF-szövegként és vektorként** megy bele, tehát
+    a lap élesen nyomtat, a hex-kódok kijelölhetők belőle, és a fájl kicsi (~80 KB).
+  - **A kör overlay-ét újrarajzoljuk, nem szerializáljuk**: az SVG színei CSS custom
+    property-kből jönnek, amik nem oldódnak fel, ha az SVG kikerül a dokumentumból — a
+    hiba úgy nézett volna ki, hogy „a mask kontúrja eltűnt a PDF-ből".
+  - **Szövegkódolás**: a base-14 Helvetica `/WinAnsiEncoding`-gal van deklarálva, és a
+    szöveg WinAnsi bájtokra kódolva. A katalógusban van `ü`, `ä` és `º`; UTF-8-cal ezek
+    mojibake lettek volna.
+  - **Hasábok**: 2, illetve 3 ha 24-nél több szín van — 32 színnel 2 hasábbal a tartalom
+    kifut a lábléc alá. Ez renderelt lapon lett ellenőrizve, nem számolással.
 - **D42 — A mask mozgatása húzással**: a maskon *belül* húzva az egész mask elmozdul a
   körön. A vertexeken és az éleken való húzás/kattintás változatlan.
   - **Hol tárolódik**: `offset: Point` az állapotban, base-térben, **a rotáció és a
@@ -213,6 +236,7 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
 | D19 | Futásidejű cusp-tábla hue-nként | Ugyanaz: nem kell, a perem közvetlenül adódik. |
 | D20 | Rádiusz = absztolút chroma, kerek diszk + elérhetetlen sáv | A YURMBY-szögosztás után nem következetesség, csak gépezet. Rádiusz most hue-nként normalizált. |
 | D11 | „Nincs festék-adatbázis és festék-illesztés, sem később" | Új követelmény érkezett; a szerző újranyitotta. Lásd D40. A „sem később" innentől nem áll. |
+| D13 | „Nincs export v1-ben" | Részlegesen visszavonva: PDF-lap export van (D43). A vágólapra másolás megmaradt. PNG/JSON export továbbra sincs. |
 | D29 | Szabálytalan cusp-kontúr kirajzolása | Nincs szabálytalan perem, a diszk kerek. |
 | D31 | Kétféle „nem elérhető" jelölés | Csak egy van: maskon kívül (D28). |
 | D33 | OkLCh anchor hue-k közti monoton interpoláció | Összeomlik identitásra: a YURMBY-szög maga az sRGB hue. |
@@ -249,7 +273,7 @@ lapszintű scroll nélkül. A lista `auto-fill` gridben, nem fix 4 oszlopban.
 - Value/L tengely, value-létra, ramp
 - Keverés-szimuláció (a festék-illesztés már **nem** nem-cél, lásd D40)
 - Kép-input bármilyen formában
-- Export (PNG / text / JSON), nyomtatás
+- PNG / text / JSON export (a **PDF-lap** viszont van, D43)
 - Fiókok, cloud sync, megosztható link
 - Mobil layout
 - Munsell renotation, CMYK, nyomdai színkezelés
@@ -293,3 +317,6 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   scroll nincs. 1280×720 és 1512×860 mellett is elfér, csonkolás nélkül.
 - 0.13 — **mask mozgatása húzással (D42)**: `offset` skalár az állapotban, a rotáció és a
   méret előtt alkalmazva; a diszkre clampelve; a húzás abszolút.
+- 0.14 — **PDF-lap export (D43)**, a D13 részlegesen visszavonva. Saját PDF-író, nulla
+  dependency; a lap pypdf-fel strict módban validálva és renderelve ellenőrizve.
+  Mellékhatásként 35 elrontott festéknév javítva a katalógus-kinyerésben.

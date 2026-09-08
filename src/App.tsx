@@ -5,12 +5,18 @@
  * two levels.
  */
 
-import { useMemo, useReducer } from 'react'
+import { useCallback, useMemo, useReducer } from 'react'
 import './App.css'
 import { MaskOverlay } from './components/MaskOverlay.tsx'
 import { MaskPanel } from './components/MaskPanel.tsx'
 import { SampleList } from './components/SampleList.tsx'
 import { WheelCanvas } from './components/WheelCanvas.tsx'
+import { toHex } from './color/format.ts'
+import { downloadFile } from './export/download.ts'
+import { sheetFileName } from './export/name.ts'
+import { PRESETS } from './mask/presets.ts'
+import { buildSheet } from './export/sheet.ts'
+import { renderWheelImage } from './export/wheelImage.ts'
 import { sampleMask } from './geom/sample.ts'
 import { MIN_VERTICES, displayPolygon, initialState, reducer } from './state/reducer.ts'
 
@@ -29,6 +35,30 @@ export default function App() {
   )
   const samples = useMemo(() => sampleMask(polygon, sampleCount), [polygon, sampleCount])
 
+  /**
+   * D43 — build the PDF sheet and hand it to the browser's download flow. The filename
+   * is derived from the colours, so re-exporting the same palette does not accumulate
+   * near-duplicates.
+   */
+  const saveSheet = useCallback((): string => {
+    const fileName = sheetFileName(samples.map((s) => toHex(s.rgb8)))
+    downloadFile(
+      buildSheet({
+        image: renderWheelImage(polygon),
+        samples,
+        polygon,
+        // The human label, not the id — the sheet is read by a person.
+        preset: PRESETS.find((p) => p.id === state.preset)?.label ?? null,
+        rotation,
+        size,
+        requested: sampleCount,
+      }),
+      fileName,
+      'application/pdf',
+    )
+    return fileName
+  }, [samples, polygon, state.preset, rotation, size, sampleCount])
+
   return (
     <main className="app">
       <div className="wheel">
@@ -41,7 +71,7 @@ export default function App() {
         />
       </div>
       <div className="side">
-        <MaskPanel state={state} dispatch={dispatch} />
+        <MaskPanel state={state} dispatch={dispatch} onSaveSheet={saveSheet} />
         {/*
           D10 requires the sRGB assumption to be stated in the UI. It lives here rather
           than above the colour list so it stays visible without competing for the room

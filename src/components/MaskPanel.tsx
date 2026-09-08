@@ -10,6 +10,7 @@
  * truth and a control that fights the reducer.
  */
 
+import { useState } from 'react'
 import { PRESETS } from '../mask/presets.ts'
 import { MAX_SAMPLES, MAX_SIZE, MIN_SAMPLES, MIN_SIZE } from '../state/reducer.ts'
 import type { Action, AppState } from '../state/types.ts'
@@ -17,9 +18,26 @@ import type { Action, AppState } from '../state/types.ts'
 type Props = {
   state: AppState
   dispatch: (action: Action) => void
+  /** Builds and downloads the PDF sheet; returns the filename used (D43). */
+  onSaveSheet: () => string
 }
 
-export function MaskPanel({ state, dispatch }: Props) {
+export function MaskPanel({ state, dispatch, onSaveSheet }: Props) {
+  const [saved, setSaved] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  function save() {
+    setSaving(true)
+    // Yield a frame so the button repaints as "Saving..." before the wheel is re-rendered
+    // at print resolution, which takes a couple of hundred milliseconds.
+    window.setTimeout(() => {
+      try {
+        setSaved(onSaveSheet())
+      } finally {
+        setSaving(false)
+      }
+    }, 0)
+  }
   return (
     <aside className="panel">
       <section>
@@ -84,6 +102,20 @@ export function MaskPanel({ state, dispatch }: Props) {
             }
           />
         </label>
+      </section>
+
+      <section>
+        <h2>Export</h2>
+        <div className="presets">
+          <button type="button" onClick={save} disabled={saving}>
+            {saving ? 'Saving...' : 'Save PDF sheet'}
+          </button>
+        </div>
+        {saved && (
+          <p className="samples-note">
+            Saved <span className="sample-hex">{saved}</span> to your downloads.
+          </p>
+        )}
       </section>
 
       <section>

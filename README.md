@@ -18,10 +18,12 @@ Reference: James Gurney, *Color and Light* — gamut masking.
   saturation; click to copy
 - Matches each colour to the nearest bottle in the AK Interactive catalogue (647 paints),
   or says so plainly when nothing is within 5%
+- Drag inside the mask to move it; drag handles to reshape it
+- Saves a printable A4 PDF sheet of the current wheel, mask and palette
 
 ## What it deliberately does not do
 
-No image input, no export beyond the clipboard, no paint *mixing* simulation, no
+No image input, no PNG/JSON export, no paint *mixing* simulation, no
 value/lightness axis, no mobile layout. These are settled decisions with reasons
 recorded, not gaps — see sections 5 and 7 of the spec before proposing any of them.
 
@@ -65,6 +67,22 @@ their own renderings, not spectrophotometer readings of dried paint. Combined wi
 
 Regenerate the catalogue with `scripts/extract-paints.py`, which needs `pdfplumber` and
 `pypdf` in a virtualenv. It is build-time only; nothing in the app imports them.
+
+## The PDF sheet
+
+The Save PDF button writes an A4 sheet — the wheel with the mask, the mask settings, and
+the colours with their paint matches — named `gamut-<hash>.pdf` from the colours
+themselves, so re-exporting the same palette does not accumulate near-duplicates.
+
+It lands in your browser's download folder. A web page cannot create a folder next to its
+own HTML file and write into it: there is no such API, and the closest thing needs a
+user-granted directory handle, is missing in Safari, and does not work on `file://`
+origins regardless.
+
+The PDF writer is about 250 lines of our own code, because zero runtime dependencies (D37)
+applies here too and the document needed is narrow: one page, filled rectangles, base-14
+Helvetica, one embedded JPEG. The wheel goes in as a bitmap; everything else is real PDF
+text and vectors, so the sheet prints crisply and the hex codes can be selected out of it.
 
 ## Stack
 

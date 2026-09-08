@@ -43,6 +43,74 @@ EXCLUDE_REFS = {
     'RC803',    # Gloss Varnish
 }
 
+def join_line(group):
+    """
+    Joins one baseline's characters, inserting a space wherever there is a real gap.
+
+    The PDF does not always contain a space character between the TYPE tag and the name
+    even though they are visibly separated, so a raw join produced "AIRWWI German Fokker
+    Grey". Gaps within a word are a fraction of a point; the gap between columns here is
+    around ten, so the threshold has a wide margin.
+    """
+    out = []
+    prev = None
+    for c in sorted(group, key=lambda c: c['x0']):
+        if prev is not None and c['x0'] - prev['x1'] > max(0.9, 0.25 * c['size']):
+            out.append(' ')
+        out.append(c['text'])
+        prev = c
+    return ' '.join(''.join(out).split())
+
+
+def read_name_cell(page, x0, x1, row_centre, tol=7.0):
+    """
+    Reads a NAME cell, grouping characters into LINES by baseline.
+
+    Some names wrap onto two lines inside the cell, and the TYPE tag (AFV/AIR/FIG) sits
+    on a third baseline between them. Cropping the cell and calling extract_text sorts
+    every character by x, which interleaves the lines: "Portland Stone" over "No.64"
+    came out as "P N o o r .6 tl 4 and Stone". 35 of 647 names were corrupted that way.
+
+    Returns (name, series_tag).
+    """
+    chars = [
+        c for c in page.chars
+        if x0 < c['x0'] < x1 and abs((c['top'] + c['bottom']) / 2 - row_centre) < tol
+    ]
+    if not chars:
+        return '', None
+
+    # Cluster by baseline: distinct lines sit several points apart, characters on the
+    # same line share a top to within rounding.
+    lines = []
+    for c in sorted(chars, key=lambda c: c['top']):
+        if lines and abs(c['top'] - lines[-1][0]) < 1.0:
+            lines[-1][1].append(c)
+        else:
+            lines.append((c['top'], [c]))
+
+    series_tag = None
+    parts = []
+    for _, group in lines:
+        text = join_line(group)
+        if not text:
+            continue
+        # The TYPE tag sits on its own baseline in some rows and shares the name's
+        # baseline in others, so both cases have to be handled or ~200 paints lose their
+        # series.
+        if text in SERIES_PREFIX:
+            series_tag = text
+            continue
+        head, _, rest = text.partition(' ')
+        if head in SERIES_PREFIX:
+            series_tag = head
+            text = rest.strip()
+            if not text:
+                continue
+        parts.append(text)
+    return ' '.join(parts), series_tag
+
+
 skipped = []
 
 def to_rgb(col):
@@ -90,18 +158,13 @@ with pdfplumber.open(PDF) as pdf:
             if not AK_REF.match(w['text']): continue
             if abs((w['x0'] + w['x1']) / 2 - ref_cx) > 22: continue   # REF column only
             ry = (w['top'] + w['bottom']) / 2
-            crop = page.crop((w['x1'] + 1, ry - 5, h_color['x0'] - 4, ry + 5))
-            name = ' '.join((crop.extract_text() or '').split())
+            name, series_tag = read_name_cell(page, w['x1'] + 1, h_color['x0'] - 4, ry)
             near = min(swatches, key=lambda s: abs(s['y'] - ry), default=None)
             if near is None or abs(near['y'] - ry) > 8:
                 skipped.append({'page': pageno, 'ref': w['text'], 'name': name,
                                 'why': 'no swatch shape in COLOR column'})
                 continue
-            series = 'Acrylic 3GEN'
-            parts = name.split()
-            if parts and parts[0] in SERIES_PREFIX:
-                series = f'Acrylic 3GEN {parts[0]}'
-                name = ' '.join(parts[1:])
+            series = f'Acrylic 3GEN {series_tag}' if series_tag else 'Acrylic 3GEN'
             out.append({'ref': w['text'], 'name': name, 'range': series,
                         'rgb': list(near['rgb'])})
 

@@ -43,6 +43,15 @@ src/
   mask/
     presets.ts              4 parametric presets                          F4, D23
 
+  export/
+    pdf.ts                  minimal PDF writer, zero deps                 D43
+    pdf.test.ts
+    sheet.ts                page layout (DOM-free, so it is inspectable)  D43
+    wheelImage.ts           wheel + mask to an offscreen canvas           D43
+    name.ts                 colour-derived filename
+    name.test.ts
+    download.ts             hands the file to the browser
+
   paints/
     catalogue.ts            647 AK paints, GENERATED — see scripts/       D40
     match.ts                nearest paint in Oklab + 5% tolerance         D40
@@ -181,6 +190,8 @@ All three questions that were open during the build are settled, in spec version
 - **Handle crowding at small mask sizes.** Handles are a fixed size in wheel space while
   the mask shrinks, so below roughly 40% size the vertices of an arc-based preset overlap.
   Scale up to edit. The spec has no notion of handle density.
+- **Export lands in the browser's download folder**, not beside the HTML. No page can
+  create a folder next to itself; see D43.
 - **Paint coverage is partial.** 647 paints come from the equivalence tables (3GEN plus
   the AFV/FIG/AIR series) and the Real Colors grids. Not included: the pigment powders
   (p56) and auxiliary products (p98), which are not bottled colour; and two paints whose
