@@ -1,3 +1,32 @@
+/*
+ * Global reset and the grey scale. Spec: F7, section 6, D26.
+ *
+ * EVERYTHING BELOW IS STILL THE VITE SCAFFOLD — delete it with the first UI commit.
+ *
+ * IMPLEMENT: `:root` custom properties for the greys, base typography, and a minimal
+ * reset. Every other stylesheet reads from here.
+ *
+ * THE GREYS ARE FUNCTIONAL (F7, and CLAUDE.md says so explicitly). The wheel is the only
+ * saturated thing on screen; everything around it is neutral so that simultaneous
+ * contrast does not shift how the disk and the swatches are perceived. That means:
+ *
+ *   - no coloured accent, no gradient, no card shadows, no branding (section 6)
+ *   - mid greys, not near-black and not near-white: a dark chrome makes the disk look
+ *     more saturated than it is, a light one washes it out
+ *   - the greys must be genuinely neutral — equal sRGB channels. A grey with a blue tint,
+ *     the usual "cool grey" design habit, is a measurement error here
+ *
+ * Suggested set, to be tuned by eye once the disk renders: a page background, a slightly
+ * lighter panel surface, a border, a primary and a muted text colour, and a focus ring.
+ * Name them by role (`--surface`, `--text-muted`), not by shade, so retuning is one edit.
+ *
+ * `color-scheme: dark` if the chrome ends up on the dark side of mid, so native controls
+ * (the range sliders) match. There is no light/dark toggle — one calibrated set of greys
+ * is the point.
+ *
+ * UI language is English (D26).
+ */
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;

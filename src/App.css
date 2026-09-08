@@ -1,3 +1,26 @@
+/*
+ * Layout only. Spec: section 6, F7.
+ *
+ * EVERYTHING BELOW IS STILL THE VITE SCAFFOLD — delete it with the first UI commit.
+ *
+ * IMPLEMENT: the two-column shell (wheel left, panel right), the square wheel box with
+ * the canvas and SVG overlay stacked in it, and the 4-column sample grid below.
+ *
+ * Stacking the canvas and the overlay: put both in a `position: relative` square box and
+ * make each `position: absolute; inset: 0`. CSS grid with both children in the same
+ * cell also works; absolute positioning is less surprising when reading it later.
+ *
+ * `touch-action: none` on the overlay SVG, or a touch drag scrolls the page instead of
+ * moving a vertex.
+ *
+ * A large neutral margin around the wheel is a functional requirement, not whitespace
+ * taste (section 6, F7): surrounding colour shifts the perceived hue of the disk.
+ *
+ * Desktop only (section 7): no media queries, no breakpoints.
+ *
+ * Colours come from the custom properties in `index.css`. Do not hard-code greys here.
+ */
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;
