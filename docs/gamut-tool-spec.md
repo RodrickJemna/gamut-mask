@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.22
+Verzió: 0.23
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -149,6 +149,24 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D48 — Gyártó-szűrő**: jelölőnégyzet gyártónként, hogy melyik katalógusra illesztünk.
+  - **Miért**: több katalógussal a sorok száma mintánként nő, és a felhasználónak
+    általában nem mind a hat gyártó tégelye kell. A szűrő a válasz a „túl sok találat"
+    problémára, nem egy találat-limit.
+  - **`BRANDS`-ből generált**: egy új katalógus hozzáadása magától kap jelölőnégyzetet,
+    ehhez a UI-hoz nem kell hozzányúlni. Egy soros, sortörő elrendezés — a panelnak
+    helyet kell hagynia a D10-es caveatnak, és ez a lista nőni fog, tehát a bővülés
+    először szélességbe menjen, ne magasságba.
+  - **Hol tárolódik**: `enabledBrands: Brand[]` az állapotban, **`BRANDS` sorrendben**
+    tartva, nem kattintási sorrendben — különben a festéksorok átrendeződnének
+    ki/bekapcsolásra. Az állapotban, mert megváltoztatja, mit mond a lista és mindkét
+    export, és mert pont ez az, amit egy mentett fájlnak hordoznia kell (D18).
+  - **Az üres szűrő engedve**, és azt jelenti, hogy „nincs festék-illesztés". Ez
+    **szándékosan más**, mint a „kerestünk és nem találtunk": ilyenkor a UI **semmit**
+    nem ír a festéksorba, nem „No paint found"-ot — az utóbbi hamis állítás lenne, mert
+    nem is kerestünk. A `closestOverall` ezért `null`-t ad üres szűrőre.
+  - **A szűrő paraméterként megy át** a `match.ts` függvényeibe, nem modul-szintű
+    állapotból, tehát a függvények tiszták maradnak.
 - **D47 — A minták a mask geometriájából, két gyűrűben**:
   - a **középpont**;
   - **külső gyűrű**: minden **csúcs** és minden **él felezőpontja**;
@@ -464,3 +482,5 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
 - 0.22 — **hibajavítás (D42)**: a mask-húzás azt clampeli, hová kerül a mask, nem az
   `offset`-et. Átformázott (nem közép-szimmetrikus) masknál a mozgatás irányonként
   aszimmetrikus volt.
+- 0.23 — **gyártó-szűrő (D48)**: jelölőnégyzet gyártónként, `BRANDS`-ből generálva. Az üres
+  szűrő „nincs illesztés"-t jelent, nem „nem találtunk"-ot.

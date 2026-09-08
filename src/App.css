@@ -79,8 +79,10 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 14px;
+  /* Five sections now (D48 added one); the gap is what keeps the D10 caveat on screen
+     at 1280x720. */
+  gap: 12px;
+  padding: 13px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -95,6 +97,40 @@
 .presets {
   display: grid;
   gap: 4px;
+}
+
+/*
+ * Brand checkboxes (D48). A wrapping row of compact labels, so more catalogues cost
+ * width before they cost height — the panel has to leave room for the D10 caveat.
+ */
+.brand-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.brand-filter label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.brand-filter input {
+  margin: 0;
+  accent-color: var(--text);
+}
+
+.brand-tag {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.brand-count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: var(--text-dim);
 }
 
 /* Two export buttons on one row — see the note in MaskPanel. */

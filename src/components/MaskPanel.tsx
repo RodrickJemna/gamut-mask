@@ -12,6 +12,8 @@
 
 import { useState } from 'react'
 import { PRESETS } from '../mask/presets.ts'
+import { paintCount } from '../paints/match.ts'
+import { BRANDS, BRAND_TAG } from '../paints/types.ts'
 import { MAX_SIZE, MIN_SIZE } from '../state/reducer.ts'
 import type { Action, AppState } from '../state/types.ts'
 
@@ -89,6 +91,35 @@ export function MaskPanel({ state, dispatch, onSaveSheet, onSaveJpeg }: Props) {
             onChange={(e) => dispatch({ type: 'setSize', factor: e.currentTarget.valueAsNumber })}
           />
         </label>
+      </section>
+
+      {/*
+        D48 — which catalogues to match against. Driven off BRANDS, so adding a
+        catalogue adds its checkbox without touching this file. Laid out as a wrapping
+        row of compact labels rather than a stacked list, because the panel has to leave
+        room for the D10 caveat beneath it and this list is expected to grow.
+      */}
+      <section>
+        <h2>Paints</h2>
+        <div className="brand-filter">
+          {BRANDS.map((brand) => {
+            const on = state.enabledBrands.includes(brand)
+            return (
+              <label key={brand} title={`${brand} — ${paintCount(brand)} paints`}>
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => dispatch({ type: 'toggleBrand', brand })}
+                />
+                <span className="brand-tag">{BRAND_TAG[brand]}</span>
+                <span className="brand-count">{paintCount(brand)}</span>
+              </label>
+            )
+          })}
+        </div>
+        {state.enabledBrands.length === 0 && (
+          <p className="samples-note">Paint matching off.</p>
+        )}
       </section>
 
       <section>

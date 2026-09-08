@@ -18,6 +18,7 @@ Reference: James Gurney, *Color and Light* — gamut masking.
   wheel wedge, with hex, lightness and saturation; click to copy
 - Matches each colour against two brands — AK Interactive (647 paints) and Vallejo
   (650) — listing whichever are within 5%, or saying so plainly when neither is
+- Checkboxes to choose which manufacturers' catalogues to match against
 - Drag inside the mask to move it; drag handles to reshape it
 - Hover (or tab to) a colour in the list to ring its position on the wheel
 - Saves the current wheel, mask and palette as a printable A4 PDF or a single JPEG
@@ -78,6 +79,11 @@ far off the nearest bottle was.
 **Brands are matched independently**, so a colour can match AK, Vallejo, both or
 neither, and the row lists whichever qualify. Collapsing to one global nearest would
 hide the fact that the other brand also has something usable.
+
+A checkbox per manufacturer chooses which catalogues to search — the answer to "too many
+matches" as more catalogues are added. Unchecking all of them turns paint matching off,
+which shows no paint lines at all rather than "No paint found": nothing was searched, so
+claiming nothing was found would be a different and false statement.
 
 Expect the saturated rim to be mostly unmatched. Real pigment does not reach sRGB
 primary saturation. Measured over the disk: AK alone covers 63.0% within 5%, Vallejo

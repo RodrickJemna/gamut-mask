@@ -9,6 +9,7 @@ import { angleOf, polar, radiusOf, type Point } from '../color/wheel.ts'
 import { centroid, clampPolygon, clampToDisk } from '../geom/polygon.ts'
 import { rotate, scale, translate } from '../geom/transform.ts'
 import { buildPreset, type PresetId } from '../mask/presets.ts'
+import { BRANDS } from '../paints/types.ts'
 import type { Action, AppState } from './types.ts'
 
 export const MIN_VERTICES = 3
@@ -21,6 +22,7 @@ const DEFAULT_PRESET: PresetId = 'triad'
 export const initialState: AppState = {
   basePolygon: buildPreset('triad', 0),
   offset: { x: 0, y: 0 },
+  enabledBrands: [...BRANDS],
   rotation: 0,
   size: 1,
   preset: DEFAULT_PRESET,
@@ -197,6 +199,21 @@ export function reducer(state: AppState, action: Action): AppState {
       const next = { x: placed.x - anchor.x, y: placed.y - anchor.y }
       if (samePoint(next, state.offset)) return state
       return { ...state, offset: next }
+    }
+
+    /**
+     * D48: turn a brand's catalogue on or off.
+     *
+     * Kept in BRANDS order rather than in the order they were clicked, so the paint rows
+     * do not reorder themselves as brands are toggled. Turning them all off is allowed —
+     * see the note on `enabledBrands`.
+     */
+    case 'toggleBrand': {
+      const on = state.enabledBrands.includes(action.brand)
+      const next = BRANDS.filter((b) =>
+        b === action.brand ? !on : state.enabledBrands.includes(b),
+      )
+      return { ...state, enabledBrands: next }
     }
 
     case 'setRotation': {

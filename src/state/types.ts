@@ -11,6 +11,7 @@
 
 import type { Point } from '../color/wheel.ts'
 import type { PresetId } from '../mask/presets.ts'
+import type { Brand } from '../paints/types.ts'
 
 export type AppState = {
   /**
@@ -46,6 +47,17 @@ export type AppState = {
   rotation: number
   /** Scale factor about the wheel centre (F5). */
   size: number
+  /**
+   * Which paint brands to match against (D48). Held in BRANDS order.
+   *
+   * In state rather than as a component preference because it changes what the colour
+   * list and both exports say, and because it is exactly the kind of thing a saved file
+   * should carry (D18).
+   *
+   * May be empty: that means "do not match paint at all", which is a useful mode and is
+   * distinct from "searched and found nothing".
+   */
+  enabledBrands: Brand[]
   /** Which preset produced basePolygon; null once hand-edited. Drives button state only. */
   preset: PresetId | null
   /**
@@ -67,6 +79,7 @@ export type Action =
    * the mask drift away from the pointer.
    */
   | { type: 'dragMask'; deltaDisplay: Point; offsetAtStart: Point }
+  | { type: 'toggleBrand'; brand: Brand }
   | { type: 'setRotation'; deg: number }
   | { type: 'setSize'; factor: number }
   | { type: 'beginDrag'; index: number }

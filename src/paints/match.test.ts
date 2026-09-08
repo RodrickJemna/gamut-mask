@@ -5,6 +5,7 @@ import {
   MATCH_TOLERANCE_PERCENT,
   closestOverall,
   differencePercent,
+  paintCount,
   hexToOklab,
   isWithinTolerance,
   matchingPaints,
@@ -12,7 +13,7 @@ import {
   nearestPerBrand,
   oklabDistance,
 } from './match.ts'
-import { BRANDS } from './types.ts'
+import { BRANDS, type Brand } from './types.ts'
 
 /**
  * Colour maths, so in scope per CLAUDE.md. Two things are worth testing here: that the
@@ -248,7 +249,8 @@ describe('two brands (D44)', () => {
       const target = wheelSample(theta, 0.55)
       const best = closestOverall(target)
       const min = Math.min(...nearestPerBrand(target).map((m) => m.distance))
-      expect(best.distance).toBeCloseTo(min, 12)
+      expect(best).not.toBeNull()
+      expect(best!.distance).toBeCloseTo(min, 12)
     }
   })
 
@@ -264,6 +266,79 @@ describe('two brands (D44)', () => {
       }
     }
     expect(either).toBeGreaterThan(akOnly)
+  })
+})
+
+describe('brand filter (D48)', () => {
+  const target = wheelSample(30, 0.35)
+
+  it('searches only the brands it is given', () => {
+    for (const brand of BRANDS) {
+      const found = nearestPerBrand(target, [brand])
+      expect(found).toHaveLength(1)
+      expect(found[0].paint.brand).toBe(brand)
+    }
+  })
+
+  it('keeps BRANDS order regardless of the order asked for', () => {
+    const reversed = [...BRANDS].reverse()
+    expect(nearestPerBrand(target, reversed).map((m) => m.paint.brand)).toEqual([...BRANDS])
+  })
+
+  it('searches every brand when none is specified', () => {
+    expect(nearestPerBrand(target).map((m) => m.paint.brand)).toEqual([...BRANDS])
+  })
+
+  it('ignores a brand that is not enabled even when it would match better', () => {
+    const all = matchingPaints(target)
+    expect(all.length).toBeGreaterThan(1)
+    for (const brand of BRANDS) {
+      const only = matchingPaints(target, [brand])
+      for (const m of only) expect(m.paint.brand).toBe(brand)
+      expect(only.length).toBeLessThanOrEqual(all.length)
+    }
+  })
+
+  /**
+   * An empty filter means "do not match paint", which is deliberately different from
+   * "searched and found nothing" — the UI shows nothing rather than "No paint found".
+   */
+  it('returns nothing, and no closest, when no brand is enabled', () => {
+    const none: Brand[] = []
+    expect(nearestPerBrand(target, none)).toEqual([])
+    expect(matchingPaints(target, none)).toEqual([])
+    expect(closestOverall(target, none)).toBeNull()
+  })
+
+  it('reports a closest for any non-empty filter', () => {
+    for (const brands of [[BRANDS[0]], [BRANDS[1]], [...BRANDS]]) {
+      const closest = closestOverall(target, brands)
+      expect(closest).not.toBeNull()
+      expect(brands).toContain(closest!.paint.brand)
+    }
+  })
+
+  it('narrowing the filter never improves the closest match', () => {
+    for (let theta = 0; theta < 360; theta += 29) {
+      const target2 = wheelSample(theta, 0.4)
+      const best = closestOverall(target2)
+      expect(best).not.toBeNull()
+      for (const brand of BRANDS) {
+        const narrowed = closestOverall(target2, [brand])
+        expect(narrowed).not.toBeNull()
+        expect(narrowed!.distance).toBeGreaterThanOrEqual(best!.distance - 1e-12)
+      }
+    }
+  })
+
+  it('counts the paints each brand contributes', () => {
+    let total = 0
+    for (const brand of BRANDS) {
+      const n = paintCount(brand)
+      expect(n).toBeGreaterThan(500)
+      total += n
+    }
+    expect(total).toBe(PAINTS.length)
   })
 })
 

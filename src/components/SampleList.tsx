@@ -24,9 +24,10 @@
  * The lightness column is a DERIVED consequence, not a control (D16): no L slider, no
  * value ramp, no sorting by lightness.
  *
- * PAINT MATCHING (D40, D44) lists the nearest bottle in EACH brand that is within the 5%
- * tolerance — both when both qualify, one when one does, and "No paint found" when
- * neither. The difference is shown either way, because "nearest is 14% off" is more
+ * PAINT MATCHING (D40, D44, D48) lists the nearest bottle in each ENABLED brand that is
+ * within the 5% tolerance — all that qualify, or "No paint found" when none do. With no
+ * brands enabled the paint lines are omitted altogether: nothing was searched, so
+ * "No paint found" would be a different and false claim. The difference is shown either way, because "nearest is 14% off" is more
  * useful than a bare refusal: it says how far outside real pigment the colour sits.
  * Expect the rim to be mostly unmatched, since no pigment reaches sRGB primary
  * saturation.
@@ -37,16 +38,18 @@ import { lightnessLabel, saturationLabel, toHex } from '../color/format.ts'
 import { ANCHORS, wedgeIndexOf, wedgeOffsetOf } from '../color/wheel.ts'
 import type { Sample } from '../geom/sample.ts'
 import { closestOverall, differencePercent, matchingPaints } from '../paints/match.ts'
-import { BRAND_TAG } from '../paints/types.ts'
+import { BRAND_TAG, type Brand } from '../paints/types.ts'
 
 type Props = {
   samples: Sample[]
+  /** Brands to match against (D48). Empty means paint matching is off entirely. */
+  brands: readonly Brand[]
   /** Index into `samples` currently highlighted on the wheel, or null (D46). */
   highlighted: number | null
   onHighlight: (index: number | null) => void
 }
 
-export function SampleList({ samples, highlighted, onHighlight }: Props) {
+export function SampleList({ samples, brands, highlighted, onHighlight }: Props) {
   const [copied, setCopied] = useState<string | null>(null)
 
   /**
@@ -122,8 +125,8 @@ export function SampleList({ samples, highlighted, onHighlight }: Props) {
                       // for a different colour when the count changes, which shows as a
                       // swatch briefly displaying the wrong colour.
                       const key = `${hex}-${sample.x.toFixed(4)}-${sample.y.toFixed(4)}`
-                      const matches = matchingPaints(sample.oklab)
-                      const closest = closestOverall(sample.oklab)
+                      const matches = matchingPaints(sample.oklab, brands)
+                      const closest = closestOverall(sample.oklab, brands)
                       return (
                         <button
                           key={key}
@@ -156,7 +159,8 @@ export function SampleList({ samples, highlighted, onHighlight }: Props) {
                             {saturationLabel(sample.t)}%
                           </span>
                           <span className="sample-paints">
-                            {matches.length === 0 ? (
+                            {/* Nothing at all when no brand is being searched. */}
+                            {closest === null ? null : matches.length === 0 ? (
                               <span className="sample-paint-row">
                                 <span className="sample-paint none">No paint found</span>
                                 <span className="sample-delta none">

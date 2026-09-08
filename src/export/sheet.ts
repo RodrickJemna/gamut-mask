@@ -20,7 +20,7 @@ import {
   matchingPaints,
   MATCH_TOLERANCE_PERCENT,
 } from '../paints/match.ts'
-import { BRAND_TAG } from '../paints/types.ts'
+import { BRAND_TAG, type Brand } from '../paints/types.ts'
 import { buildPdf, Content, type PdfImage } from './pdf.ts'
 import type { Surface } from './surface.ts'
 
@@ -50,6 +50,8 @@ export const SHEET_MARGIN_PT = MARGIN
 
 export type SheetContent = {
   samples: Sample[]
+  /** Brands to match against (D48). Empty omits the paint lines entirely. */
+  brands: readonly Brand[]
   polygon: { x: number; y: number }[]
   preset: string | null
   rotation: number
@@ -92,7 +94,7 @@ export function layoutSheet(
   input: SheetContent,
   options: LayoutOptions,
 ): number {
-  const { samples, polygon, preset, rotation, size } = input
+  const { samples, polygon, preset, rotation, size, brands } = input
   let c = surface
   let y = 0
 
@@ -153,9 +155,11 @@ export function layoutSheet(
   infoY += 8
   c.text(infoX, infoY, 'PAINT MATCHING', { size: 8, bold: true, hex: MUTED })
   infoY += 14
+  const brandLine =
+    brands.length === 0 ? 'Off' : brands.join(', ')
   for (const line of [
-    'Nearest AK and Vallejo paint within',
-    `${MATCH_TOLERANCE_PERCENT}% in Oklab. Beyond that, none.`,
+    `Brands: ${brandLine}`,
+    `Nearest within ${MATCH_TOLERANCE_PERCENT}% in Oklab.`,
     'Catalogue swatch colours, not measured',
     'paint — a starting point, not a reading.',
   ]) {
@@ -214,7 +218,7 @@ export function layoutSheet(
       for (let col = 0; col < cols; col++) {
         const sample = bucket[row * cols + col]
         if (!sample) break
-        drawEntry(c, sample, MARGIN + col * (colW + GUTTER), top, colW)
+        drawEntry(c, sample, MARGIN + col * (colW + GUTTER), top, colW, brands)
       }
       y += ENTRY_H
     }
@@ -250,7 +254,14 @@ export function buildSheet(input: SheetInput): Uint8Array {
 }
 
 /** One colour: its swatch and readings, then a line per matched brand (D44). */
-function drawEntry(c: Surface, sample: Sample, x: number, top: number, colW: number): void {
+function drawEntry(
+  c: Surface,
+  sample: Sample,
+  x: number,
+  top: number,
+  colW: number,
+  brands: readonly Brand[],
+): void {
   const hex = toHex(sample.rgb8)
   c.rect(x, top - SWATCH + 2, SWATCH, SWATCH, hex)
   c.strokeRect(x, top - SWATCH + 2, SWATCH, SWATCH, RULE, 0.4)
@@ -260,9 +271,11 @@ function drawEntry(c: Surface, sample: Sample, x: number, top: number, colW: num
   const nums = `L ${lightnessLabel(sample.oklab.L)}   S ${saturationLabel(sample.t)}%`
   c.text(x + colW - 20 - c.measure(nums, 7.5), top, nums, { size: 7.5, hex: DIM })
 
-  const matches = matchingPaints(sample.oklab)
+  const matches = matchingPaints(sample.oklab, brands)
   if (matches.length === 0) {
-    const closest = closestOverall(sample.oklab)
+    // Nothing at all when no brand is being searched — see D48.
+    const closest = closestOverall(sample.oklab, brands)
+    if (closest === null) return
     const delta = `${differencePercent(closest.distance)}%`
     c.text(textX, top + 9, 'No paint found', { size: 7.5, hex: DIM })
     c.text(x + colW - 20 - c.measure(delta, 7.5), top + 9, delta, { size: 7.5, hex: DIM })

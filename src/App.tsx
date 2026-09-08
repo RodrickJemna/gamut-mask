@@ -40,7 +40,7 @@ export default function App() {
    */
   const [highlighted, setHighlighted] = useState<number | null>(null)
 
-  const { basePolygon, offset, rotation, size } = state
+  const { basePolygon, offset, rotation, size, enabledBrands } = state
   const polygon = useMemo(
     () => displayPolygon({ basePolygon, offset, rotation, size }),
     [basePolygon, offset, rotation, size],
@@ -51,11 +51,12 @@ export default function App() {
     () => ({
       samples,
       polygon,
+      brands: enabledBrands,
       preset: PRESETS.find((p) => p.id === state.preset)?.label ?? null,
       rotation,
       size,
     }),
-    [samples, polygon, state.preset, rotation, size],
+    [samples, polygon, enabledBrands, state.preset, rotation, size],
   )
 
   /**
@@ -114,6 +115,7 @@ export default function App() {
       </div>
       <SampleList
         samples={samples}
+        brands={enabledBrands}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />

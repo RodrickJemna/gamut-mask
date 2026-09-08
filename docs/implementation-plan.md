@@ -60,7 +60,7 @@ src/
     ak.ts                   647 AK paints, GENERATED — see scripts/       D40
     vallejo.ts              650 Vallejo paints, GENERATED                 D44
     catalogue.ts            the two combined into one flat list
-    match.ts                nearest per brand in Oklab + 5% tolerance     D40, D44
+    match.ts                nearest per enabled brand + 5% tolerance     D40, D44, D48
     match.test.ts
 
   state/

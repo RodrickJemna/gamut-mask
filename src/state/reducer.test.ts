@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { polar, radiusOf } from '../color/wheel.ts'
 import { centroid } from '../geom/polygon.ts'
 import { buildPreset } from '../mask/presets.ts'
+import { BRANDS } from '../paints/types.ts'
 import {
   MAX_SIZE,
   MIN_SIZE,
@@ -181,6 +182,40 @@ describe('slider clamps', () => {
   it('returns the same object when a slider does not actually change', () => {
     expect(reducer(initialState, { type: 'setRotation', deg: 0 })).toBe(initialState)
     expect(reducer(initialState, { type: 'setSize', factor: 1 })).toBe(initialState)
+  })
+})
+
+describe('brand filter (D48)', () => {
+  it('starts with every brand enabled', () => {
+    expect(initialState.enabledBrands).toEqual([...BRANDS])
+  })
+
+  it('toggles a brand off and back on', () => {
+    const off = reducer(initialState, { type: 'toggleBrand', brand: BRANDS[0] })
+    expect(off.enabledBrands).not.toContain(BRANDS[0])
+    const on = reducer(off, { type: 'toggleBrand', brand: BRANDS[0] })
+    expect(on.enabledBrands).toEqual([...BRANDS])
+  })
+
+  it('keeps BRANDS order, so paint rows do not reshuffle as brands are toggled', () => {
+    let st = initialState
+    for (const brand of BRANDS) st = reducer(st, { type: 'toggleBrand', brand })
+    for (const brand of [...BRANDS].reverse()) {
+      st = reducer(st, { type: 'toggleBrand', brand })
+    }
+    expect(st.enabledBrands).toEqual([...BRANDS])
+  })
+
+  it('allows every brand to be turned off', () => {
+    let st = initialState
+    for (const brand of BRANDS) st = reducer(st, { type: 'toggleBrand', brand })
+    expect(st.enabledBrands).toEqual([])
+  })
+
+  it('leaves the mask untouched', () => {
+    const toggled = reducer(initialState, { type: 'toggleBrand', brand: BRANDS[0] })
+    expect(toggled.basePolygon).toBe(initialState.basePolygon)
+    expect(toggled.preset).toBe(initialState.preset)
   })
 })
 

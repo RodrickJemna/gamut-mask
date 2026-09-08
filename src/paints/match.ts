@@ -10,6 +10,10 @@
  * would hide the fact that the other brand also has something usable, which is the whole
  * point of carrying two catalogues.
  *
+ * Which brands to search is passed IN (D48) rather than read from a module constant, so
+ * the filter is a plain argument and the functions stay pure. An empty list means "do
+ * not match paint", which is deliberately different from "searched and found nothing".
+ *
  * WHAT THIS CANNOT DO, stated because the numbers look more authoritative than they are:
  * the catalogue swatches are the manufacturer's print renderings, not measurements of
  * dried paint, and D10 already says the pipeline assumes sRGB and does not predict
@@ -92,9 +96,14 @@ export function nearestPaintOfBrand(target: Oklab, brand: Brand): PaintMatch {
   return { paint: best.paint, distance: bestDist }
 }
 
-/** The closest paint in each brand, in BRANDS order. Always one entry per brand. */
-export function nearestPerBrand(target: Oklab): PaintMatch[] {
-  return BRANDS.map((brand) => nearestPaintOfBrand(target, brand))
+/** The closest paint in each of `brands`, in BRANDS order. One entry per brand. */
+export function nearestPerBrand(
+  target: Oklab,
+  brands: readonly Brand[] = BRANDS,
+): PaintMatch[] {
+  return BRANDS.filter((b) => brands.includes(b)).map((brand) =>
+    nearestPaintOfBrand(target, brand),
+  )
 }
 
 /**
@@ -103,13 +112,30 @@ export function nearestPerBrand(target: Oklab): PaintMatch[] {
  * This is the list the UI renders: both brands when both qualify, one when one does, and
  * nothing when neither, which is when "No paint found" is shown.
  */
-export function matchingPaints(target: Oklab): PaintMatch[] {
-  return nearestPerBrand(target).filter(isWithinTolerance)
+export function matchingPaints(
+  target: Oklab,
+  brands: readonly Brand[] = BRANDS,
+): PaintMatch[] {
+  return nearestPerBrand(target, brands).filter(isWithinTolerance)
 }
 
-/** The closest match across all brands, for reporting how far off the nearest bottle is. */
-export function closestOverall(target: Oklab): PaintMatch {
-  return nearestPerBrand(target).reduce((a, b) => (b.distance < a.distance ? b : a))
+/**
+ * The closest match across the searched brands, for reporting how far off the nearest
+ * bottle is. Null when no brands are being searched — there is no "nearest" to report.
+ */
+export function closestOverall(
+  target: Oklab,
+  brands: readonly Brand[] = BRANDS,
+): PaintMatch | null {
+  const found = nearestPerBrand(target, brands)
+  return found.length === 0
+    ? null
+    : found.reduce((a, b) => (b.distance < a.distance ? b : a))
+}
+
+/** How many paints a brand contributes. Shown beside its checkbox. */
+export function paintCount(brand: Brand): number {
+  return BY_BRAND.get(brand)?.length ?? 0
 }
 
 /** The distance as the percentage the UI shows. 100% is an Oklab distance of 1. */
