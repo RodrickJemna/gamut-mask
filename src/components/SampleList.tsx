@@ -21,12 +21,19 @@
  *
  * The lightness column is a DERIVED consequence, not a control (D16): no L slider, no
  * value ramp, no sorting by lightness.
+ *
+ * PAINT MATCHING (D40) shows the nearest bottle in the AK catalogue, or "No paint found"
+ * when the nearest is further than the 5% tolerance. The difference is shown either way,
+ * because "nearest is 14% off" is more useful than a bare refusal — it tells you how far
+ * outside real pigment the colour sits. Expect the rim to be mostly unmatched: no
+ * pigment reaches sRGB primary saturation.
  */
 
 import { useMemo, useState } from 'react'
 import { lightnessLabel, saturationLabel, toHex } from '../color/format.ts'
 import { ANCHORS, wedgeIndexOf, wedgeOffsetOf } from '../color/wheel.ts'
 import type { Sample } from '../geom/sample.ts'
+import { differencePercent, isWithinTolerance, nearestPaint } from '../paints/match.ts'
 
 type Props = {
   samples: Sample[]
@@ -67,7 +74,9 @@ export function SampleList({ samples, requested }: Props) {
         </h2>
         <span className="samples-note">
           Assumes sRGB. On an uncalibrated monitor this plans relative harmony; it does not
-          predict absolute paint colour.
+          predict absolute paint colour. Paint matches use the catalogue&apos;s printed
+          swatches, not measured paint — treat them as a starting point, not a colour
+          reading.
         </span>
       </div>
 
@@ -95,21 +104,38 @@ export function SampleList({ samples, requested }: Props) {
                       // for a different colour when the count changes, which shows as a
                       // swatch briefly displaying the wrong colour.
                       const key = `${hex}-${sample.x.toFixed(4)}-${sample.y.toFixed(4)}`
+                      const match = nearestPaint(sample.oklab)
+                      const close = isWithinTolerance(match)
                       return (
                         <button
                           key={key}
                           type="button"
                           className="sample"
                           onClick={() => void copy(hex)}
-                          title="Copy hex"
+                          title={
+                            close
+                              ? `Copy hex — nearest paint ${match.paint.ref} ${match.paint.name} (${match.paint.range})`
+                              : 'Copy hex — no paint within 5%'
+                          }
                         >
                           <span className="sample-swatch" style={{ background: hex }} />
                           <span className="sample-hex">
                             {copied === hex ? 'copied' : hex}
                           </span>
                           <span className="sample-nums">
-                            L {lightnessLabel(sample.oklabL)}
-                            <br />S {saturationLabel(sample.t)}%
+                            L {lightnessLabel(sample.oklab.L)} &middot; S{' '}
+                            {saturationLabel(sample.t)}%
+                          </span>
+                          {close ? (
+                            <span className="sample-paint">
+                              <span className="paint-ref">{match.paint.ref}</span>
+                              {match.paint.name}
+                            </span>
+                          ) : (
+                            <span className="sample-paint none">No paint found</span>
+                          )}
+                          <span className={close ? 'sample-delta' : 'sample-delta none'}>
+                            &Delta;{differencePercent(match.distance)}%
                           </span>
                         </button>
                       )

@@ -216,7 +216,7 @@ describe('ordering and payload', () => {
   it('carries the colour the wheel model gives for that position', () => {
     for (const s of sampleMask(bigTriad, 16)) {
       expect(s.rgb8).toEqual(sampleSrgb8(s.theta, s.t))
-      expect(s.oklabL).toBeCloseTo(wheelSample(s.theta, s.t).L, 12)
+      expect(s.oklab.L).toBeCloseTo(wheelSample(s.theta, s.t).L, 12)
     }
   })
 

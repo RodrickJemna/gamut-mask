@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.10
+Verzió: 0.11
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -11,7 +11,8 @@ D35 pontosítása implementáció közbeni mérésekből származnak.
 Miniatűr-festéshez való gamut mask szerkesztő. Mask felvétele egy YURMBY-színkörön, és
 a maskon belüli színek felsorolása. Képernyőn használatos, session-alapú eszköz.
 
-Nem képszerkesztő, nem festék-illesztő, nem keverés-szimulátor, nem value-tervező.
+Nem képszerkesztő, nem keverés-szimulátor, nem value-tervező. Festék-illesztés a
+0.11 óta van (D40).
 
 Referencia: James Gurney, *Color and Light* — gamut masking, YURMBY-kör.
 
@@ -104,7 +105,6 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   következmény, nem terv. A value-tervezés a felhasználónál marad.
 - **D10 — A pipeline sRGB-t feltételez.** Kalibrálatlan monitor → relatív harmóniát
   tervez, nem absztolút festékszínt jósol. A UI-ban kiírva.
-- **D11 — Nincs festék-adatbázis és festék-illesztés, sem később.**
 - **D12 — Nincs kép-input, sem később.**
 - **D13 — Nincs export v1-ben.** Kattintásra hex a vágólapra, ennyi.
 - **D18 — Az állapot JSON-serializálható alakú**, hogy a későbbi mentés ne igényeljen
@@ -112,6 +112,27 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
 - **D8 — Nincs backend, account, router.** Statikus, offline app.
 - **D14 — Nincs zustand.** `useReducer` elég.
 - **D26 — A UI nyelve angol.** Nincs i18n réteg.
+- **D40 — Festék-illesztés (a D11 visszavonása)**: minden minta mellett megjelenik a
+  hozzá legközelebbi AK festék, vagy „No paint found", ha a legközelebbi is túl messze
+  van. Új követelmény nyomán; a D11 a 5. pontba került.
+  - **Metrika**: euklideszi távolság **Oklabban**. Ez az, amire az Oklab jó — az egyenlő
+    numerikus lépések közelítőleg egyenlő perceptuális lépések —, tehát a
+    „legközelebbi Oklabban" védhető, a „legközelebbi sRGB-ben" nem lenne az.
+  - **Tolerancia**: 5%, ahol a 100% egységnyi Oklab-távolság (kb. a fekete–fehér
+    szakasz). A döntés a **kijelzett, kerekített** százalékon történik, nem a nyers
+    távolságon, hogy a kettő soha ne mondjon mást: e nélkül volt olyan sor, ami
+    „No paint found" mellé „Δ5%"-ot írt (0,0504 → 5-re kerekül, de nagyobb 0,05-nél).
+  - **Miért jó szám az 5%**: mérve a teljes diszken. A közel-semleges sávban (`t < 0.2`)
+    100% talál festéket, a peremen (`t > 0.8`) csak 27%, összesen ~59%. Ez fizikailag
+    helyes: valódi pigment nem éri el az sRGB primerek telítettségét, tehát a
+    „nincs festék" a peremen csoportosul, és ez információ, nem hiba.
+  - **Az adat, kimondva**: a katalógus **nyomtatott swatch-színei**, nem megszáradt
+    festék méréssel. A D10 szerint a pipeline sRGB-t feltételez és nem jósol absztolút
+    festékszínt — a találat azt jelenti, hogy „ez a tégely a színtér jó környékén van",
+    nem azt, hogy „ez a tégely ilyen színű". A UI kiírja.
+  - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
+    placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
+    semleges minta a „Matte Medium"-ra illeszkedett volna.
 - **D27 — Gép: Apple Silicon, arm64.** Node 24 LTS natív .pkg-ből. Lásd `setup-macos.md`.
 - **D38 — Az atmoszférikus preset geometriája**: kör alakú (14 szögpont) blob,
   `r = 0.34`, a középtől `0.28`-ra kitolva a base hue irányába. Tehát tartalmazza a
@@ -155,10 +176,11 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
 | D15 | `L` = az in-gamut L-intervallum közepe | Gamut-keresést igényelt; a perem így is a telített sRGB szín, keresés nélkül. |
 | D19 | Futásidejű cusp-tábla hue-nként | Ugyanaz: nem kell, a perem közvetlenül adódik. |
 | D20 | Rádiusz = absztolút chroma, kerek diszk + elérhetetlen sáv | A YURMBY-szögosztás után nem következetesség, csak gépezet. Rádiusz most hue-nként normalizált. |
+| D11 | „Nincs festék-adatbázis és festék-illesztés, sem később" | Új követelmény érkezett; a szerző újranyitotta. Lásd D40. A „sem később" innentől nem áll. |
 | D29 | Szabálytalan cusp-kontúr kirajzolása | Nincs szabálytalan perem, a diszk kerek. |
 | D31 | Kétféle „nem elérhető" jelölés | Csak egy van: maskon kívül (D28). |
 | D33 | OkLCh anchor hue-k közti monoton interpoláció | Összeomlik identitásra: a YURMBY-szög maga az sRGB hue. |
-| — | Festék-illesztés, kép-input, export, value-ramp | Felhasználói scope-döntések, lásd D11–D13, D16. |
+| — | Kép-input, export, value-ramp | Felhasználói scope-döntések, lásd D12, D13, D16. (A festék-illesztés visszatért: D40.) |
 
 ---
 
@@ -188,7 +210,7 @@ színlista alatta 4 oszlopos gridben.
 ## 7. Nem cél
 
 - Value/L tengely, value-létra, ramp
-- Festék-adatbázis, festék-illesztés, keverés-szimuláció
+- Keverés-szimuláció (a festék-illesztés már **nem** nem-cél, lásd D40)
 - Kép-input bármilyen formában
 - Export (PNG / text / JSON), nyomtatás
 - Fiókok, cloud sync, megosztható link
@@ -227,3 +249,6 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   (D39), és a D35 „kifelé telítettebb" állításának pontosítása mérés alapján. A
   `docs/implementation-plan.md` sorolja azt az öt pontot, ahol az implementáció
   ellentmondott a tervnek vagy a specnek.
+- 0.11 — **festék-illesztés (D40)**, a D11 visszavonva. 647 AK festék kinyerve az
+  AK_Catalogue2026.pdf-ből (két lapformátum: vektoros swatch az ekvivalencia-táblákban,
+  raszteres a Real Colors rácsokon). Minta-lista wedge-enként csoportosítva.

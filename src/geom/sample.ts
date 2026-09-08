@@ -14,7 +14,7 @@ import {
   sample as wheelSample,
   type Point,
 } from '../color/wheel.ts'
-import { oklabToSrgb8 } from '../color/oklab.ts'
+import { oklabToSrgb8, type Oklab } from '../color/oklab.ts'
 import {
   bounds,
   clampToDisk,
@@ -29,7 +29,8 @@ export type Sample = {
   theta: number
   t: number
   rgb8: [number, number, number]
-  oklabL: number
+  /** The full Oklab value, so paint matching does not have to recompute it. */
+  oklab: Oklab
 }
 
 /**
@@ -262,7 +263,7 @@ export function sampleMask(poly: Polygon, n: number): Sample[] {
         theta,
         t,
         rgb8: oklabToSrgb8(lab),
-        oklabL: lab.L,
+        oklab: lab,
       }
     })
     .sort((a, b) => a.theta - b.theta)

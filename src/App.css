@@ -198,16 +198,23 @@
   border-top: 1px solid var(--border);
 }
 
+/*
+ * Three columns rather than the four in spec section 6. Each row now carries a paint
+ * name as well (D40), and at four columns most names ellipsised away to nothing.
+ */
 .samples-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
 }
 
 .sample {
   display: grid;
-  grid-template-columns: 34px 1fr auto;
-  gap: 10px;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "swatch hex   nums"
+    "swatch paint delta";
+  gap: 2px 10px;
   align-items: center;
   padding: 6px;
   text-align: left;
@@ -223,6 +230,7 @@
 
 /* Generous neutral padding around each swatch, for the same reason as the wheel margin. */
 .sample-swatch {
+  grid-area: swatch;
   width: 34px;
   height: 34px;
   border: 1px solid var(--border);
@@ -230,6 +238,7 @@
 }
 
 .sample-hex {
+  grid-area: hex;
   /* The one string worth selecting by hand, so opt it back in. */
   user-select: text;
   font-family: var(--font-mono);
@@ -237,10 +246,47 @@
 }
 
 .sample-nums {
+  grid-area: nums;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
   text-align: right;
+  white-space: nowrap;
+}
+
+/* The nearest paint (D40). Ellipsised — the full name and range are in the row title. */
+.sample-paint {
+  grid-area: paint;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.paint-ref {
+  margin-right: 6px;
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.sample-paint.none {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.sample-delta {
+  grid-area: delta;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Dimmed when nothing was close enough, so it reads as context not as a match. */
+.sample-delta.none {
+  color: var(--text-dim);
 }
 
 .empty {

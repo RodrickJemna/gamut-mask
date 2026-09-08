@@ -43,6 +43,11 @@ src/
   mask/
     presets.ts              4 parametric presets                          F4, D23
 
+  paints/
+    catalogue.ts            647 AK paints, GENERATED — see scripts/       D40
+    match.ts                nearest paint in Oklab + 5% tolerance         D40
+    match.test.ts
+
   state/
     types.ts                AppState + Action, JSON-serialisable          D18
     reducer.ts              the reducer                                   D14
@@ -170,16 +175,14 @@ All three questions that were open during the build are settled, in spec version
 
 ## 6. Known issues, not yet decided
 
-- **List order across the 0/360 seam.** D17 says sort by angle, and the sampler does. But
-  a mask straddling 0 degrees — the default analogous wedge does, spanning 339 to 21 —
-  gets split across the two ends of the list: hues 0-21 first, 339-349 last. The colours
-  that sit next to each other on the wheel land at opposite ends of the grid. Sorting by
-  angle relative to the mask's own angular centre, unwrapped, would read correctly and is
-  a small change, but it departs from a literal reading of D17, so it is the author's
-  call.
 - **Handle crowding at small mask sizes.** Handles are a fixed size in wheel space while
   the mask shrinks, so below roughly 40% size the vertices of an arc-based preset overlap.
   Scale up to edit. The spec has no notion of handle density.
+- **Paint coverage is partial.** 647 paints come from the equivalence tables (3GEN plus
+  the AFV/FIG/AIR series) and the Real Colors grids. Not included: the pigment powders
+  (p56) and auxiliary products (p98), which are not bottled colour; and two paints whose
+  catalogue rows carry no swatch at all, AK11001 White and AK11191 Gold. Adding the
+  pigments is a two-line change to `scripts/extract-paints.py` if wanted.
 - **Constants awaiting a calibrated eye.** `--mask-wash-opacity` (0.58) and the preset
   radii in `mask/presets.ts` were set by eye in a browser, not on a colour-managed
   display. They are named constants for exactly this reason.

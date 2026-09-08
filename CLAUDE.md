@@ -13,8 +13,12 @@ Screen-only, session-based, offline. No backend.
 - section 7: explicit non-goals
 
 Read sections 4 and 5 before proposing anything. Several obvious-looking improvements
-(paint database, image input, export, value/lightness axis, absolute-chroma radius,
-runtime gamut cusp search) were deliberately removed and must not come back.
+(image input, export, value/lightness axis, absolute-chroma radius, runtime gamut cusp
+search) were deliberately removed and must not come back.
+
+Paint matching is the one exception: it was D11 ("not even later") and was reopened by
+the author in 0.11. It now exists as D40, with the catalogue in `src/paints/`. D11 is in
+section 5 with the rest of the withdrawn decisions.
 
 `docs/setup-macos.md` documents how the toolchain was installed. Historical reference.
 
@@ -38,6 +42,10 @@ Plain CSS with custom properties — the exact greys are functional, not decorat
 
 **Zero runtime dependencies beyond React and react-dom.** Do not add culori, zustand,
 Tailwind, a router, or a component library. State is small enough for `useReducer`.
+
+The paint catalogue in `src/paints/catalogue.ts` is generated data, not a dependency.
+Regenerate it with `scripts/extract-paints.py`, which needs pdfplumber and pypdf in a
+throwaway virtualenv — build-time only, and nothing in the app imports them.
 
 The Oklab ↔ linear sRGB conversion is our own ~30 lines, using Ottosson's original
 matrices. It exists only to interpolate the centre-to-rim transition. It is not a

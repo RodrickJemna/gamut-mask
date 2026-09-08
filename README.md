@@ -14,13 +14,19 @@ Reference: James Gurney, *Color and Light* — gamut masking.
 - Free polygon mask editor — drag, add and remove vertices
 - Presets: triad, split complementary, analogous wedge
 - Rotate and scale the mask about the wheel centre
-- Lists the colours inside the mask with hex, lightness and saturation; click to copy
+- Lists the colours inside the mask, grouped by wheel wedge, with hex, lightness and
+  saturation; click to copy
+- Matches each colour to the nearest bottle in the AK Interactive catalogue (647 paints),
+  or says so plainly when nothing is within 5%
 
 ## What it deliberately does not do
 
-No paint database or paint matching, no image input, no export beyond the clipboard, no
+No image input, no export beyond the clipboard, no paint *mixing* simulation, no
 value/lightness axis, no mobile layout. These are settled decisions with reasons
 recorded, not gaps — see sections 5 and 7 of the spec before proposing any of them.
+
+Paint matching was itself a settled *non*-goal (D11) until new requirements reopened it
+in 0.11; it is now D40.
 
 ## The wheel model
 
@@ -39,6 +45,26 @@ saturated.
 
 The pipeline assumes sRGB. On an uncalibrated monitor it plans relative harmony; it does
 not predict absolute paint colour.
+
+## Paint matching
+
+Each sample is matched to the nearest paint by Euclidean distance in Oklab — equal
+numeric steps there are roughly equal perceptual steps, so nearest-in-Oklab is
+defensible where nearest-in-sRGB would not be. Beyond 5% difference (100% being an
+Oklab distance of 1) the row says "No paint found" but still shows the colour and how
+far off the nearest bottle was.
+
+Expect the saturated rim to be mostly unmatched. Real pigment does not reach sRGB
+primary saturation: across the disk, 100% of near-neutral colours find a paint within
+5% and only 27% of rim colours do.
+
+**What the paint colours are**: the swatches printed in the manufacturer's catalogue —
+their own renderings, not spectrophotometer readings of dried paint. Combined with D10
+(the pipeline assumes sRGB and does not predict absolute paint colour), a match means
+"this bottle is in the right region", not "this bottle is this colour".
+
+Regenerate the catalogue with `scripts/extract-paints.py`, which needs `pdfplumber` and
+`pypdf` in a virtualenv. It is build-time only; nothing in the app imports them.
 
 ## Stack
 
