@@ -80,8 +80,14 @@ export type Action =
    */
   | { type: 'dragMask'; deltaDisplay: Point; offsetAtStart: Point }
   | { type: 'toggleBrand'; brand: Brand }
-  | { type: 'setRotation'; deg: number }
-  | { type: 'setSize'; factor: number }
+  /**
+   * `continuous` marks one frame of a slider drag, as opposed to a single deliberate
+   * value. Undo/redo needs the distinction: a sweep must collapse into one step, while a
+   * typed value and a snap are separate steps even though both set the same field. See
+   * `mergeKeyOf` in state/history.ts.
+   */
+  | { type: 'setRotation'; deg: number; continuous?: boolean }
+  | { type: 'setSize'; factor: number; continuous?: boolean }
   | { type: 'beginDrag'; index: number }
   | { type: 'endDrag' }
 

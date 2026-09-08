@@ -62,10 +62,16 @@ function mergeKeyOf(action: Action): string | null {
       return `moveVertex:${action.index}`
     case 'dragMask':
       return 'dragMask'
+    /**
+     * Only a SLIDER FRAME merges. Keying on the action type alone conflated two different
+     * things, because a typed value and the snap toggle dispatch the same action as the
+     * slider does: typing 137 degrees and then ticking Snap collapsed into a single step,
+     * so one undo went past 137 to 0 and there was no way back to the typed angle.
+     */
     case 'setRotation':
-      return 'setRotation'
+      return action.continuous ? 'setRotation' : null
     case 'setSize':
-      return 'setSize'
+      return action.continuous ? 'setSize' : null
     default:
       return null
   }

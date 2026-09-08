@@ -48,7 +48,7 @@ describe('history', () => {
 
   it('collapses a whole slider sweep into one step', () => {
     const sweep: HistoryAction[] = []
-    for (let deg = 1; deg <= 40; deg++) sweep.push({ type: 'setRotation', deg })
+    for (let deg = 1; deg <= 40; deg++) sweep.push({ type: 'setRotation', deg, continuous: true })
     const h = run(sweep)
 
     expect(h.present.rotation).toBe(40)
@@ -88,10 +88,10 @@ describe('history', () => {
 
   it('separates two different mergeable gestures', () => {
     const h = run([
-      { type: 'setRotation', deg: 10 },
-      { type: 'setRotation', deg: 20 },
-      { type: 'setSize', factor: 0.5 },
-      { type: 'setSize', factor: 0.4 },
+      { type: 'setRotation', deg: 10, continuous: true },
+      { type: 'setRotation', deg: 20, continuous: true },
+      { type: 'setSize', factor: 0.5, continuous: true },
+      { type: 'setSize', factor: 0.4, continuous: true },
     ])
     expect(h.past).toHaveLength(2)
     const back = historyReducer(h, { type: 'undo' })
@@ -140,13 +140,40 @@ describe('history', () => {
 
   it('does not merge the first action after an undo into the restored step', () => {
     const h = run([
-      { type: 'setRotation', deg: 30 },
+      { type: 'setRotation', deg: 30, continuous: true },
       { type: 'undo' },
-      { type: 'setRotation', deg: 45 },
+      { type: 'setRotation', deg: 45, continuous: true },
     ])
     // The undo restored 0 degrees; the new sweep must be undoable back to it.
     expect(h.present.rotation).toBe(45)
     expect(historyReducer(h, { type: 'undo' }).present.rotation).toBe(0)
+  })
+
+  /**
+   * Regression: found by driving the real UI. Typing 137 degrees and then ticking Snap
+   * both dispatch setRotation, so keying the merge on the action type alone collapsed
+   * them into ONE step — a single undo jumped from 120 straight past 137 to 0, and the
+   * typed angle could not be recovered. Only a slider frame is `continuous`.
+   */
+  it('keeps a typed value and a snap as separate steps', () => {
+    const h = run([
+      { type: 'setRotation', deg: 137 },
+      { type: 'setRotation', deg: 120 },
+    ])
+    expect(h.past).toHaveLength(2)
+    const back = historyReducer(h, { type: 'undo' })
+    expect(back.present.rotation).toBe(137)
+    expect(historyReducer(back, { type: 'undo' }).present.rotation).toBe(0)
+  })
+
+  it('does not merge a typed value into the slider sweep before it', () => {
+    const h = run([
+      { type: 'setRotation', deg: 10, continuous: true },
+      { type: 'setRotation', deg: 20, continuous: true },
+      { type: 'setRotation', deg: 137 },
+    ])
+    expect(h.past).toHaveLength(2)
+    expect(historyReducer(h, { type: 'undo' }).present.rotation).toBe(20)
   })
 
   it('is a no-op at either end of the stack', () => {

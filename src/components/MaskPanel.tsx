@@ -161,15 +161,29 @@ export function MaskPanel({
             aria-label="Rotation"
             min={0}
             max={359}
-            /*
-              Snapping is done by the STEP rather than by a magnetic tolerance around each
-              anchor. A tolerance would make the angles just either side of an anchor
-              unreachable while snap is on, which is a worse bargain than simply having
-              six stops; exact intermediate values are what the number field is for.
-            */
-            step={snap ? WEDGE_SPAN : 1}
+            step={1}
             value={Math.round(state.rotation)}
-            onChange={(e) => dispatch({ type: 'setRotation', deg: e.currentTarget.valueAsNumber })}
+            /*
+              Snapping happens HERE, on the way out, rather than as the input's `step`.
+              Step-based snapping desynchronises the control from the state: with step 60,
+              a rotation of 40 typed into the field renders the thumb at 60, because 40 is
+              not a value the input considers valid. Snapping the emitted value instead
+              keeps every angle expressible by the slider, and the mode only constrains
+              what dragging it produces.
+
+              It is not a magnetic tolerance either — that would make the angles just
+              either side of an anchor unreachable while snap is on. Dragging gives six
+              stops; exact intermediate values are what the number field is for.
+            */
+            onChange={(e) =>
+              dispatch({
+                type: 'setRotation',
+                deg: snap
+                  ? snapToAnchorAngle(e.currentTarget.valueAsNumber)
+                  : e.currentTarget.valueAsNumber,
+                continuous: true,
+              })
+            }
           />
         </div>
 
@@ -190,7 +204,13 @@ export function MaskPanel({
             max={MAX_SIZE}
             step={0.01}
             value={state.size}
-            onChange={(e) => dispatch({ type: 'setSize', factor: e.currentTarget.valueAsNumber })}
+            onChange={(e) =>
+              dispatch({
+                type: 'setSize',
+                factor: e.currentTarget.valueAsNumber,
+                continuous: true,
+              })
+            }
           />
         </div>
       </section>
