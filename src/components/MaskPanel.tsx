@@ -227,7 +227,27 @@ export function MaskPanel({
         room for the D10 caveat beneath it and this list is expected to grow.
       */}
       <section>
-        <h2>Paints</h2>
+        {/*
+          The scrim toggle shares the heading's line, like Snap and undo/redo. It had a
+          row of its own and that row pushed the D10 caveat off a 1280x720 screen — the
+          exact failure the note on `.panel` in App.css warns about, reintroduced by D50.
+        */}
+        <div className="panel-head">
+          <h2>Paints</h2>
+          {state.enabledBrands.length > 0 && (
+            <label
+              className="snap"
+              title="Shade the wheel where no enabled paint comes within 5%"
+            >
+              <input
+                type="checkbox"
+                checked={showUnreachable}
+                onChange={(e) => onToggleUnreachable(e.currentTarget.checked)}
+              />
+              Unreachable
+            </label>
+          )}
+        </div>
         <div className="brand-filter">
           {BRANDS.map((brand) => {
             const on = state.enabledBrands.includes(brand)
@@ -244,22 +264,8 @@ export function MaskPanel({
             )
           })}
         </div>
-        {/*
-          D50 — the scrim toggle sits under the brand checkboxes because it is a statement
-          ABOUT them: what it shades is whatever the boxes above leave unreachable. Hidden
-          entirely when nothing is being matched, since there is then no claim to make.
-        */}
-        {state.enabledBrands.length === 0 ? (
+        {state.enabledBrands.length === 0 && (
           <p className="samples-note">Paint matching off.</p>
-        ) : (
-          <label className="snap" title="Shade the wheel where no enabled paint comes within 5%">
-            <input
-              type="checkbox"
-              checked={showUnreachable}
-              onChange={(e) => onToggleUnreachable(e.currentTarget.checked)}
-            />
-            Mark unreachable
-          </label>
         )}
       </section>
 
