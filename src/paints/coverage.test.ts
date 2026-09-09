@@ -118,13 +118,14 @@ describe('combinedField', () => {
   })
 
   it('is the per-cell minimum of the brands it combines', () => {
-    const ak = brandField('AK')
-    const vj = brandField('Vallejo')
-    const both = combinedField(BRANDS)
-    expect(both).not.toBeNull()
-    if (!both) return
-    for (let i = 0; i < both.length; i += 97) {
-      expect(both[i]).toBeCloseTo(Math.min(ak[i], vj[i]), 6)
+    // Over every brand, not a hardcoded pair — this test named AK and Vallejo and so
+    // silently stopped covering the combination the moment a third catalogue arrived.
+    const fields = BRANDS.map(brandField)
+    const all = combinedField(BRANDS)
+    expect(all).not.toBeNull()
+    if (!all) return
+    for (let i = 0; i < all.length; i += 97) {
+      expect(all[i]).toBeCloseTo(Math.min(...fields.map((f) => f[i])), 6)
     }
   })
 

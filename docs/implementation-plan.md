@@ -204,18 +204,22 @@ All three questions that were open during the build are settled, in spec version
   handles overlap again and the answer is still to scale the mask up to edit it.
 - **Export lands in the browser's download folder**, not beside the HTML. No page can
   create a folder next to itself; see D43.
-- **The colour list is much shorter since D47** — seven colours for a triad, eight to
-  eleven for the arc presets — so it fits comfortably at 1280x720 as well. A hand-drawn
-  mask with many vertices can still overflow the column, which scrolls internally while
-  the wheel and controls stay put.
+- **The colour list scrolls at 1280x720 with three brands.** D47 made the list short
+  (seven colours for a triad, eight to eleven for the arc presets), but each card carries
+  one paint line per brand, so a third catalogue took the default triad's cards from 71px
+  to 89px and the column from overflowing by 34px to 125px. It scrolls internally while
+  the wheel and controls stay put, which is what D41 asks for; nothing is unreachable.
+  Turning brands off shortens the cards again.
 - **Paint coverage is partial, by brand.** AK: 647 from the equivalence tables (3GEN plus
   the AFV/FIG/AIR series) and the Real Colors grids; excluded are the pigment powders and
   auxiliary products, and two rows with no swatch at all (AK11001 White, AK11191 Gold).
   Vallejo: 650 across Model Color, Model Air, Game Color, Game Air and Mecha Color;
   excluded are the 73.xxx auxiliary line, varnishes and mediums, and the Metal / True
   Metallic ranges, where a flat swatch misrepresents a metallic. 45 Vallejo codes on
-  chart pages have no swatch above them and are skipped.
-- **Coverage: 73.4% of the disk per CELL, but only ~58% by AREA.** Both figures are of
+  chart pages have no swatch above them and are skipped. Pro Acryl: 138 of the 187 codes
+  in the set list; excluded are the metallics, the transparents and washes, and the 24
+  1-Step paints, whose swatches are printed as a gradient (D51).
+- **Coverage: 74.6% of the disk per CELL, but only ~60% by AREA.** Both figures are of
   the same grid; the per-cell one over-counts the centre, because a cell at t = 0.05
   covers a twentieth of the area of one at t = 1. By area — which is what the eye sees on
   the wheel and what D50's scrim shades — roughly 42% of the disk is unreachable. AK alone

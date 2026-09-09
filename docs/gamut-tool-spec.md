@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.26
+Verzió: 0.27
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -149,6 +149,39 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D51 — Harmadik gyártó: Monument Hobbies Pro Acryl.** 138 szín, `src/paints/proacryl.ts`,
+  a „Set List.pdf"-ből kinyerve. A `BRANDS` lista bővítése plusz egy adatmodul; a
+  gyártó-szűrő (D48), az elérhetőségi mező (D50) és a lap sormagassága mind a `BRANDS`-ből
+  származik, tehát maguktól követték.
+  - **A kinyerés három csapdája**, mindegyik dokumentálva a scriptben: (1) a PDF minden
+    glifát **kétszer** rajzol (így fake-bold), ezért „BBoolldd" — a dedupe tolerancia
+    **mért**: az azonos glifák 92%-a 0.05 pt-en belül van, utána ~89 pt-re ugrik a
+    következő. (2) Néhány tile a szöveget **kétszer, két elrendezésben** hordozza, a
+    két réteg legközelebb 0.442 pt-re van egymástól, ezért a név-sorcsoportosítás
+    toleranciája 0.1. (3) A tile saját fill-je **fehér**, nem a festék színe.
+  - **A szín raszterizált lapról, MÓDUSSZAL**: a swatch egy **kör fekete háttéren**, a név
+    és a kód **rá van írva** fehérrel, tehát nincs tiszta téglalap. A beírt körlap
+    leggyakoribb színe a festék (a mediánja 72%-a a pixeleknek), a felirat pedig
+    szétszóródik antialiasolt szürkékbe. Validálva: a 010 Purple deklarált
+    (0.494, 0.31, 0.486) fillje **#7e4f7c**-ként jött vissza, nulla csatornahibával.
+    A tile-ok egymásra rétegzettsége ingyen konzisztencia-ellenőrzés: 176 duplikált kód
+    közül 175 pontosan egyezik, a maradék egyet 2:1-re leszavazza a **többség**.
+  - **Kizárva**: metálok (halmaz és név szerint is), transzparensek és washok — lapos
+    swatch félrevezet, ugyanaz az ítélet, mint az AK-nál és a Vallejónál. **Az 1-Step
+    szettek is**, és ez **mért** kizárás: a swatch-üket gradienssel rajzolják, így a
+    módusz a fehér feliratra esik (a körlap 2–6%-a, szemben a máshol mért 72%-kal). A
+    `MIN_FLAT_SHARE` alatti swatch pontosan azt a 24 festéket dobja ki és semmi mást —
+    és el fogja kapni a következő gradiens swatch-ot is, ahelyett hogy csendben olyan
+    színre redukálná, amilyen nincs neki.
+  - **Mit ad hozzá, őszintén**: a fedést alig. Területre vetítve 58.3% → **59.7%**, mert
+    csak a korong **1.4%-át** éri el egyedül; 38.2%-on osztozik a másik kettővel. A 138
+    festék önmagában viszont 39.6%-ot fed — hatékonyabb, mint az AK 647 festéke 47.3%-kal.
+    Amit ad, az a **választék**: a négy preseten a minták **22%-ánál** a Pro Acryl a
+    legközelebbi tégely. Olyan szín, aminek eddig nem volt találata és most van: **nulla**.
+  - **A lap sormagassága (`ENTRY_H`) innentől számított**, `12 + 9 × BRANDS.length`. Fixen
+    30 volt, ami pontosan két gyártóra volt igaz; a harmadikkal a sorok egymásra
+    csúsztak volna — az a fajta hiba, ami addig lapul, amíg valaki el nem olvas egy
+    kinyomtatott lapot.
 - **D50 — Elérhetőségi visszajelzés: mit nem tud egyáltalán kiadni festék.**
   - **A probléma**: a festék-fedés se nem egyenletes, se nem kitalálható, tehát a maskot
     oda is lehet vinni, ahol a színei többségének nincs tégelye — és ez eddig csak
@@ -171,8 +204,8 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
     hogy a fátyol és a `matchingPaints` **minden rácspontban** egyetért. Az árnyékolt
     terület és a listában lévő szöveg ugyanaz a kérdés; a D40-nek már van sebhelye abból,
     amikor két ilyen olvasat elcsúszott.
-  - **A fedés valódi száma**: a korong **területének** kb. 42%-a elérhetetlen mindkét
-    katalógussal együtt is. Az implementációs jegyzetben szereplő 73.4% **cellánkénti**
+  - **A fedés valódi száma**: a korong **területének** kb. 40%-a elérhetetlen mind a három
+    katalógussal együtt is (két gyártóval 42% volt, lásd D51). Az implementációs jegyzetben szereplő 73.4% **cellánkénti**
     fedés egy egyenletes theta–t rácson, ami túlsúlyozza a közepet: egy t=0.05-es cella a
     huszadát fedi egy t=1-esnek. Területre vetítve a fedés ~58%.
   - **És nem „a perem"**: a vörös a peremig elérhető, a kék és a magenta viszont már
@@ -592,3 +625,8 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   területi fedés ~58%, nem a jegyzetben szereplő 73.4% — az cellánkénti volt.
 - 0.26 — **a D50 fátyol alapból kikapcsolva**: a szerző szerint a korong 42%-át beborító
   árnyékolás csúnya. A jelölőnégyzet a helyén, a számláló változatlanul mindig látszik.
+- 0.27 — **harmadik gyártó (D51)**: 138 Pro Acryl szín. A `BRANDS`-ből származó dolgok
+  (szűrő, elérhetőségi mező, lap-sormagasság) maguktól követték; az `ENTRY_H` fixen két
+  gyártóra volt szabva, most számított. A fedés 58.3% → 59.7% területre, viszont a minták
+  22%-ánál a Pro Acryl a legközelebbi tégely. Mellékesen javítva: a D50 jelölőnégyzete a
+  PAINTS fejlécsorába költözött, mert a saját sora 1280×720-on lelökte a D10-es caveatot.

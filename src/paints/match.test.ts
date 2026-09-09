@@ -178,18 +178,37 @@ describe('tolerance calibration', () => {
   })
 })
 
-describe('two brands (D44)', () => {
-  it('carries both catalogues, each a plausible size', () => {
+describe('several brands (D44, D51)', () => {
+  /**
+   * Sizes are asserted per brand rather than against one floor: the catalogues differ by
+   * a factor of five, because Pro Acryl publishes one set list where AK and Vallejo
+   * publish full ranges. A single ">500" hid nothing useful and broke on the third brand.
+   */
+  it('carries every catalogue, each a plausible size', () => {
+    const expected: Record<Brand, number> = { AK: 500, Vallejo: 500, 'Pro Acryl': 100 }
     for (const brand of BRANDS) {
-      expect(PAINTS.filter((p) => p.brand === brand).length).toBeGreaterThan(500)
+      expect(PAINTS.filter((p) => p.brand === brand).length).toBeGreaterThan(
+        expected[brand],
+      )
     }
     expect(new Set(PAINTS.map((p) => p.brand))).toEqual(new Set(BRANDS))
   })
 
   it('gives every paint a ref in its brand’s own format', () => {
-    for (const p of PAINTS) {
-      if (p.brand === 'AK') expect(p.ref).toMatch(/^(AK|RC)\d{3,6}$/)
-      else expect(p.ref).toMatch(/^\d{2}\.\d{3}$/)
+    const formats: Record<Brand, RegExp> = {
+      AK: /^(AK|RC)\d{3,6}$/,
+      Vallejo: /^\d{2}\.\d{3}$/,
+      // Monument numbers each set differently: plain, Fluorescent, Signature, Expert
+      // Artist, and the AMP line.
+      'Pro Acryl': /^(\d{3}|F\d{2}|S\d{2}|E\d{3}|AMP-\d{3})$/,
+    }
+    for (const p of PAINTS) expect(p.ref).toMatch(formats[p.brand])
+  })
+
+  it('keeps refs unique within a brand, so a paint has one identity', () => {
+    for (const brand of BRANDS) {
+      const refs = PAINTS.filter((p) => p.brand === brand).map((p) => p.ref)
+      expect(new Set(refs).size).toBe(refs.length)
     }
   })
 
@@ -337,9 +356,11 @@ describe('brand filter (D48)', () => {
     let total = 0
     for (const brand of BRANDS) {
       const n = paintCount(brand)
-      expect(n).toBeGreaterThan(500)
+      expect(n).toBeGreaterThan(0)
       total += n
     }
+    // The real assertion: the counts partition the catalogue exactly, with nothing
+    // double-counted and no brand missing.
     expect(total).toBe(PAINTS.length)
   })
 })

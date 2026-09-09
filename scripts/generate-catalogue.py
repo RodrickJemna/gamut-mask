@@ -1,8 +1,12 @@
 """
 Turns the extractor JSON into the TypeScript data modules the app imports.
 
-Usage: generate-catalogue.py <ak.json> <vallejo.json>
-Run the two extractors first; see scripts/extract-paints.py and extract-vallejo.py.
+Usage: generate-catalogue.py [--ak F] [--vallejo F] [--proacryl F]
+
+One flag per brand, and only the brands given are written — the extractor JSONs are not
+kept in the repository, so regenerating one catalogue must not require the other PDFs.
+Run the matching extractor first; see scripts/extract-paints.py, extract-vallejo.py and
+extract-proacryl.py.
 """
 import json, sys
 
@@ -43,8 +47,29 @@ def emit(path, brand, source, script, const, rows):
     open(path, 'w').write('\n'.join(out))
     return len(rows)
 
-ak = json.load(open(sys.argv[1]))['paints']
-vj = json.load(open(sys.argv[2]))['paints']
-n1 = emit(f'{ROOT}/ak.ts', 'AK', 'AK_Catalogue2026.pdf', 'extract-paints.py', 'AK_PAINTS', ak)
-n2 = emit(f'{ROOT}/vallejo.ts', 'Vallejo', 'Catalogo_2026-R02.pdf (Vallejo)', 'extract-vallejo.py', 'VALLEJO_PAINTS', vj)
-print(f'ak.ts: {n1} paints, vallejo.ts: {n2} paints')
+BRANDS = {
+    'ak': ('ak.ts', 'AK', 'AK_Catalogue2026.pdf', 'extract-paints.py', 'AK_PAINTS'),
+    'vallejo': (
+        'vallejo.ts', 'Vallejo', 'Catalogo_2026-R02.pdf (Vallejo)',
+        'extract-vallejo.py', 'VALLEJO_PAINTS',
+    ),
+    'proacryl': (
+        'proacryl.ts', 'Pro Acryl', 'Set List.pdf (Monument Hobbies)',
+        'extract-proacryl.py', 'PRO_ACRYL_PAINTS',
+    ),
+}
+
+args = sys.argv[1:]
+if not args:
+    sys.exit(__doc__.strip())
+while args:
+    flag = args.pop(0).lstrip('-')
+    if flag not in BRANDS:
+        sys.exit(f'unknown brand {flag!r}; expected one of {", ".join(BRANDS)}')
+    if not args:
+        sys.exit(f'--{flag} needs a JSON path')
+    path = args.pop(0)
+    filename, brand, source, script, const = BRANDS[flag]
+    rows = json.load(open(path))['paints']
+    n = emit(f'{ROOT}/{filename}', brand, source, script, const, rows)
+    print(f'{filename}: {n} paints')

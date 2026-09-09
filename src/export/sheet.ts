@@ -20,7 +20,7 @@ import {
   matchingPaints,
   MATCH_TOLERANCE_PERCENT,
 } from '../paints/match.ts'
-import { BRAND_TAG, type Brand } from '../paints/types.ts'
+import { BRANDS, BRAND_TAG, type Brand } from '../paints/types.ts'
 import { buildPdf, Content, type PdfImage } from './pdf.ts'
 import type { Surface } from './surface.ts'
 
@@ -33,11 +33,15 @@ const FOOTER_TOP = PAGE_H - MARGIN - 22
 
 const WHEEL_SIZE = 220
 /**
- * Height of one colour entry: the colour line plus up to two paint lines, one per brand
- * (D44). Paints get their own lines because laid out beside the colour they truncate to
- * roughly eight characters, and an unreadable paint name defeats the point of matching.
+ * Height of one colour entry: the colour line plus one paint line per brand (D44). Paints
+ * get their own lines because laid out beside the colour they truncate to roughly eight
+ * characters, and an unreadable paint name defeats the point of matching.
+ *
+ * DERIVED from BRANDS rather than written out. It was 30, correct for exactly two brands;
+ * adding a third (D51) would have overlapped the row below it, which is the kind of
+ * breakage a constant hides until someone reads a printed sheet.
  */
-const ENTRY_H = 30
+const ENTRY_H = 12 + 9 * BRANDS.length
 const SWATCH = 13
 
 const TEXT = '#111111'
