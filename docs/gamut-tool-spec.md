@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.30
+Verzió: 0.31
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -149,6 +149,58 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D54 — 60-30-10 paletták a mask színeiből, a lap alján.** Legalább három javaslat
+  maskonként, mindegyik egy arányos sávként.
+  - **Mi tudomány és mi nem.** A 60-30-10 maga **tervezői ökölszabály**, nem
+    látástudományi eredmény. Ami viszont kimondott, több mint százéves elv: **Munsell
+    egyensúlya** — „minél erősebb a szín, annál kisebb legyen a területe; minél nagyobb a
+    terület, annál szürkébb a chroma", és a szín a **középszürkén** egyensúlyoz. Munsell
+    számszerűvé is tette: egy szín erőssége a **value × chroma** szorzata, a területek
+    pedig **fordítottan** aránylanak ehhez:
+
+        A1 / A2 = (V2 · C2) / (V1 · C1),   azaz   A · V · C állandó
+
+    Két saját munkapéldája fixálja a formulát: R7/6 (7×6=42) az R3/3-mal (3×3=9)
+    **9 : 42** arányban egyensúlyoz; a Blue 4/5 (20) és a Yellow-Red 6/7 (42) pedig
+    **42 : 20** arányban.
+  - **Ezért a 60-30-10 ellenőrizhetővé válik.** Ha a területek 0.6 / 0.3 / 0.1, akkor —
+    mivel A·V·C egyenlő — az erősségeknek **1 : 2 : 6** arányban kell állniuk: az akcentus
+    hatszor olyan erős, mint a domináns, a másodlagos kétszer. **A szerepek tehát nem
+    stílusdöntés, hanem a területekből következnek**: a domináns mindig a leghalványabb
+    szín, az akcentus a legerősebb.
+  - **Ahol közelítünk**: Munsell value/chroma külön skálák, mi Oklab világosságot és
+    chromát használunk, mert a kör abban van felépítve (D35) és mert a Munsell-renotáció
+    kifejezett nem-cél (7. pont). Az **arányokat a mértékegység nem érinti** (mindkét
+    tengely konstansszoros átskálázása minden erősséget ugyanannyival szoroz, és kiesik),
+    de a két világosság-skála közti nemlinearitás igen. A `balance` tehát **relatív
+    rendezés, nem Munsell-mérés.**
+  - **A szürke ingyen van**, és ez hűség, nem kibúvó: chroma nélkül nincs erősség, tehát
+    egy semleges nem tud kiegyensúlyozatlanná tenni semmit — ő az a pont, amin a többi
+    egyensúlyoz. Bármekkora területet elbír, és a pontszám csak a kromatikus tagokat
+    kötözi. Pontosan így működik egy nagy tompa alapszín két kromatikus akcentussal.
+  - **A `balance` szám kiírva**, nem elrejtve: 1.00 = pontosan Munsell szerint egyensúlyos
+    ezeken a területeken. Ha a mask színeinek erőssége nem fogja át a 60-30-10-hez kellő
+    **6×**-os tartományt, akkor ennél jobb nem lehet — mérve: triád **1.00 / 1.07 / 1.13**,
+    split 1.09 / 1.10 / 1.29, analóg 1.25 / 2.56 / 3.20, atmoszférikus 1.57 / 1.80 / 2.54.
+    Az analóg és az atmoszférikus mask szűk erősség-tartománya (3.8×, illetve 2.9×) tehát
+    **nem tud** három jól egyensúlyozott felosztást adni, és ezt a szám megmondja.
+  - **A változatosság szakaszosan lazul**, nem éhezik el: az első kör külön akcentust ÉS
+    külön dominánst kér (így három *ötlet* jön ki, nem egy ötlet három helyettesítéssel),
+    a második csak külön akcentust, a harmadik bármit. Négy színű mask így hármat ad;
+    háromszínű egyet, mert háromból hármat egyféleképpen lehet választani.
+  - **Kevés színnél nem hazudik**: a pasztell körön egy szűk mask a D47 0.05-os
+    szeparációja után **két** színre olvad, és kettőből nem lesz háromrészes paletta — a
+    UI ezt kiírja, nem tölti fel ismétlésekkel.
+  - **A lap alján, teljes szélességben**, saját grid-sorban (`auto` magasság, a felső sor
+    `minmax(0,1fr)`), tehát a csík annyit kér, amennyi a tartalma, és nem szűkíti a kört
+    ok nélkül. A hover a D46-ot használja újra: a szakasz fölé érve ugyanaz a szín
+    gyűrűződik a körön, mint a listasor fölé érve.
+  - **A címkék NEM a szakaszokhoz igazodnak.** Igazodtak, és jól is olvasódott, amíg ki
+    nem derült, hogy a 10%-os cella 1024-en 31 px, 1280-on 40 px — egyikbe sem fér bele egy
+    hex, tehát minden akcentus kódja csonkolódott. Az arányokat a sáv hordozza; a
+    címkesor csak olvasható legyen.
+  - **A mask-használati súgó a kör alá költözött** (a caveat mellé), és ez az, ami helyet
+    adott ennek a sornak: nélküle a kontrollpanel 92 px-szel túlfolyt 1280×720-on.
 - **D53 — Váltható színkörök (négy változat, azonos geometria).** A kör eddig egy volt;
   most négy, és a választó a panel tetején van.
   - **Egy kör = egy KÖZÉP és egy PEREM.** A `sample` Oklabban interpolál a kettő között,
@@ -730,3 +782,7 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
 - 0.30 — **indulásnál csak az AK Interactive** (D48 módosítása): négy bekapcsolt gyártó
   négy festéksort jelentett minden szín alatt, mielőtt bárki megmondta volna, milyen
   festéke van. A default egy gyártó, a többi a szűrőből jön.
+- 0.31 — **60-30-10 paletták (D54)**: három javaslat maskonként a lap alján, arányos
+  sávként. A szerepeket Munsell egyensúly-elve szabja meg (A·V·C állandó), tehát a
+  területek 0.6/0.3/0.1-nél 1:2:6 erősséget kívánnak; a `balance` szám kiírva mondja meg,
+  ha egy mask ezt nem tudja. A mask-súgó a kör alá került, hogy legyen hely a sornak.

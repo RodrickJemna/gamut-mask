@@ -10,6 +10,7 @@ import './App.css'
 import { MaskOverlay } from './components/MaskOverlay.tsx'
 import { MaskPanel } from './components/MaskPanel.tsx'
 import { SampleList } from './components/SampleList.tsx'
+import { SchemeStrip } from './components/SchemeStrip.tsx'
 import { WheelCanvas } from './components/WheelCanvas.tsx'
 import { toHex } from './color/format.ts'
 import { wheelById } from './color/wheel.ts'
@@ -180,6 +181,17 @@ export default function App() {
           also reads better here: the caveat is about what the DISK means, not about the
           export buttons it used to sit under.
         */}
+        {/*
+          The mask's interactions are described HERE too, for the same reason as the
+          caveat and with better cause: they are instructions about the disk, and reading
+          them under the thing they describe beats reading them under the export buttons.
+          Moving them out of the panel is also what let D54's strip take a row without
+          the controls column starting to scroll.
+        */}
+        <p className="wheel-hint">
+          Drag the mask to move it, a handle to reshape it. Click an edge to add a vertex,
+          alt-click to remove.
+        </p>
         <p className="caveat">
           Assumes sRGB: on an uncalibrated monitor this plans relative harmony, not
           absolute paint colour. Matches use printed catalogue swatches.
@@ -198,6 +210,18 @@ export default function App() {
         />
       </div>
       <SampleList
+        samples={samples}
+        brands={enabledBrands}
+        highlighted={highlighted}
+        onHighlight={setHighlighted}
+      />
+      {/*
+        D54 — the 60-30-10 suggestions span the full width along the bottom, so they read
+        as a conclusion drawn from everything above rather than as a fourth column
+        competing with them. It shares `highlighted` with the colour list, so hovering a
+        segment rings the same colour on the wheel that hovering its row would.
+      */}
+      <SchemeStrip
         samples={samples}
         brands={enabledBrands}
         highlighted={highlighted}

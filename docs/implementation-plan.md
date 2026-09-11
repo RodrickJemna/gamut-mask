@@ -254,6 +254,17 @@ All three questions that were open during the build are settled, in spec version
   whole time. It corrects itself the moment the tab becomes visible, so this matters only
   when driving the page from automation, where it looks exactly like a broken render.
 
+- **Not every mask supports a balanced 60-30-10** (D54). The rule needs the three
+  colours' strengths to span 6x; the analogous and atmospheric presets span 3.8x and 2.9x
+  at full size, so their best schemes score 1.25 and 1.57 rather than 1.00, and their
+  second and third fall to 2.5-3.2. This is reported, not hidden — but it means the strip
+  is most useful on the triad and split presets, and a tight mask on the pastel wheel can
+  produce no scheme at all because D47 leaves it only two distinguishable colours.
+- **The 60-30-10 strip is not on the exported sheet.** The PDF and JPEG carry the colour
+  list and its paint matches but not the schemes, so the bench artefact does not yet say
+  which colour is the 60% and which the 10%. Additive when wanted; the layout has room on
+  page one beside the mask block.
+
 ## 7. The one named later candidate
 
 Section 7 of the spec lists saving and loading state as the only future candidate. D18 is

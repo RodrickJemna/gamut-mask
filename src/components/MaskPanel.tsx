@@ -306,12 +306,6 @@ export function MaskPanel({
         )}
       </section>
 
-      {/* No heading: the panel has to leave room for the D10 caveat beneath it, and on a
-          1280x720 screen a fifth section heading is what pushes the caveat off. */}
-      <p className="samples-note">
-        Drag the mask to move it, a handle to reshape it. Click an edge to add a vertex,
-        alt-click to remove.
-      </p>
     </aside>
   )
 }
