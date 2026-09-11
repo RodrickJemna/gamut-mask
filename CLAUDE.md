@@ -63,6 +63,9 @@ The Oklab ↔ linear sRGB conversion is our own ~30 lines, using Ottosson's orig
 matrices. It exists only to interpolate the centre-to-rim transition. It is not a
 general colour library and should not grow into one.
 
+`PRESETS` in `src/mask/presets.ts` is the list of mask shapes (D55); their buttons draw
+their icons from `buildPreset`, so a shape and its icon cannot drift apart.
+
 `WHEELS` in `src/color/wheel.ts` is the list of colour wheels (D53). A wheel is a centre
 and a rim, nothing more, and everything downstream takes it as an argument — so adding a
 variant in that group is one entry. Where a function renders an IMAGE the wheel is a

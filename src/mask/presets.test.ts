@@ -9,12 +9,24 @@ import { PRESETS, buildPreset, type BuildablePresetId } from './presets.ts'
  * responding to the base angle.
  */
 
-const ALL: BuildablePresetId[] = ['triad', 'split', 'analogous', 'atmospheric']
+/**
+ * Derived from PRESETS, not written out. It was a literal list of four, so the two shapes
+ * added in D55 would have skipped every invariant below — a new preset must inherit the
+ * checks automatically or the checks are decoration.
+ */
+const ALL: BuildablePresetId[] = PRESETS.map((p) => p.id)
 
 describe('every preset', () => {
-  it('is listed as available', () => {
-    expect(PRESETS.map((p) => p.id)).toEqual(ALL)
+  it('is listed as available, with a label and a hint', () => {
+    expect(PRESETS).toHaveLength(6)
     expect(PRESETS.every((p) => p.available)).toBe(true)
+    for (const preset of PRESETS) {
+      expect(preset.label.length).toBeGreaterThan(0)
+      // The buttons are icons (D55), so the hint is the only place the name is spelled
+      // out for a pointer user.
+      expect(preset.hint.length).toBeGreaterThan(0)
+    }
+    expect(new Set(PRESETS.map((p) => p.id)).size).toBe(PRESETS.length)
   })
 
   it('has at least 3 vertices, all inside the disk (D22)', () => {
@@ -125,5 +137,82 @@ describe('atmospheric (D38)', () => {
   it('stays muted — nothing reaches the saturated rim', () => {
     const radii = buildPreset('atmospheric', 0).map((v) => radiusOf(v.x, v.y))
     expect(Math.max(...radii)).toBeLessThan(0.7)
+  })
+})
+
+/**
+ * The two shapes added in D55. Both span the wheel through its centre, which is the
+ * property that makes them stable schemes — their own neutral coincides with the wheel's.
+ */
+describe('complementary (D55)', () => {
+  const poly = buildPreset('complement', 0)
+
+  it('is a four-vertex diamond containing the neutral', () => {
+    expect(poly).toHaveLength(4)
+    expect(containsPoint(poly, { x: 0, y: 0 })).toBe(true)
+  })
+
+  it('puts its poles on opposite hues', () => {
+    // The two far vertices are the hue and its complement; that is the whole scheme.
+    const byRadius = [...poly].sort((a, b) => radiusOf(b.x, b.y) - radiusOf(a.x, a.y))
+    const [p, q] = byRadius
+    expect(radiusOf(p.x, p.y)).toBeCloseTo(radiusOf(q.x, q.y), 9)
+    const separation = Math.abs(angleOf(p.x, p.y) - angleOf(q.x, q.y))
+    expect(Math.min(separation, 360 - separation)).toBeCloseTo(180, 6)
+  })
+
+  it('is pinched across the middle, or it would just be a triad', () => {
+    const radii = poly.map((v) => radiusOf(v.x, v.y)).sort((a, b) => a - b)
+    expect(radii[1]).toBeLessThan(radii[2] / 3)
+  })
+
+  it('turns with the base hue', () => {
+    const turned = buildPreset('complement', 90)
+    const poles = (ring: typeof poly) =>
+      [...ring].sort((a, b) => radiusOf(b.x, b.y) - radiusOf(a.x, a.y)).slice(0, 2)
+    const before = poles(poly).map((v) => angleOf(v.x, v.y)).sort((a, b) => a - b)
+    const after = poles(turned).map((v) => angleOf(v.x, v.y)).sort((a, b) => a - b)
+    expect(after[0]).toBeCloseTo((before[0] + 90) % 360, 6)
+  })
+})
+
+describe('rectangle (D55)', () => {
+  const poly = buildPreset('rectangle', 0)
+
+  it('is actually a rectangle', () => {
+    expect(poly).toHaveLength(4)
+    const side = (a: number, b: number) =>
+      Math.hypot(poly[b].x - poly[a].x, poly[b].y - poly[a].y)
+    // Opposite sides equal, and the diagonals equal — which together is a rectangle.
+    expect(side(0, 1)).toBeCloseTo(side(2, 3), 9)
+    expect(side(1, 2)).toBeCloseTo(side(3, 0), 9)
+    expect(side(0, 2)).toBeCloseTo(side(1, 3), 9)
+  })
+
+  it('is wider than it is tall, so it is not a square', () => {
+    const side = (a: number, b: number) =>
+      Math.hypot(poly[b].x - poly[a].x, poly[b].y - poly[a].y)
+    const [shortSide, longSide] = [side(0, 1), side(1, 2)].sort((a, b) => a - b)
+    expect(longSide).toBeGreaterThan(shortSide * 1.4)
+  })
+
+  it('is two complementary pairs, which is what a centred rectangle is', () => {
+    expect(containsPoint(poly, { x: 0, y: 0 })).toBe(true)
+    // Each corner's opposite corner sits 180 degrees away at the same radius.
+    for (let i = 0; i < 2; i++) {
+      const a = poly[i]
+      const b = poly[i + 2]
+      expect(radiusOf(a.x, a.y)).toBeCloseTo(radiusOf(b.x, b.y), 9)
+      const separation = Math.abs(angleOf(a.x, a.y) - angleOf(b.x, b.y))
+      expect(Math.min(separation, 360 - separation)).toBeCloseTo(180, 6)
+    }
+  })
+
+  it('stays a rectangle when turned with the base hue', () => {
+    const turned = buildPreset('rectangle', 37)
+    const side = (ring: typeof poly, a: number, b: number) =>
+      Math.hypot(ring[b].x - ring[a].x, ring[b].y - ring[a].y)
+    expect(side(turned, 0, 1)).toBeCloseTo(side(poly, 0, 1), 9)
+    expect(side(turned, 1, 2)).toBeCloseTo(side(poly, 1, 2), 9)
   })
 })

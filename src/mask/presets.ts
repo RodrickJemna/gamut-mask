@@ -12,16 +12,64 @@
 import { polar, type Point } from '../color/wheel.ts'
 import { clampPolygon, signedArea, type Polygon } from '../geom/polygon.ts'
 
-export type PresetId = 'triad' | 'split' | 'analogous' | 'atmospheric'
+export type PresetId =
+  | 'triad'
+  | 'split'
+  | 'complement'
+  | 'rectangle'
+  | 'analogous'
+  | 'atmospheric'
 
 /** Every preset is buildable now that atmospheric has a geometry. */
 export type BuildablePresetId = PresetId
 
-export const PRESETS: readonly { id: PresetId; label: string; available: boolean }[] = [
-  { id: 'triad', label: 'Triad', available: true },
-  { id: 'split', label: 'Split complementary', available: true },
-  { id: 'analogous', label: 'Analogous', available: true },
-  { id: 'atmospheric', label: 'Atmospheric', available: true },
+/**
+ * Ordered for the 3x2 grid in the panel (D55), reading left to right, top row then
+ * bottom: the three that span the wheel through its centre first, then the two off to one
+ * side. `hint` is the button's tooltip, since the buttons are icons.
+ */
+export const PRESETS: readonly {
+  id: PresetId
+  label: string
+  hint: string
+  available: boolean
+}[] = [
+  {
+    id: 'triad',
+    label: 'Triad',
+    hint: 'Three hues 120 degrees apart; edges pass near the neutral',
+    available: true,
+  },
+  {
+    id: 'split',
+    label: 'Split complementary',
+    hint: 'A hue plus the two flanking its complement — vibrant, a little unsettled',
+    available: true,
+  },
+  {
+    id: 'complement',
+    label: 'Complementary',
+    hint: 'A hue and its opposite through the centre — an opposition, fire against ice',
+    available: true,
+  },
+  {
+    id: 'rectangle',
+    label: 'Rectangle',
+    hint: 'Two complementary pairs at the corners of a rectangle — four hues, still balanced',
+    available: true,
+  },
+  {
+    id: 'analogous',
+    label: 'Analogous',
+    hint: 'A band of neighbouring hues; pure, and slightly otherworldly',
+    available: true,
+  },
+  {
+    id: 'atmospheric',
+    label: 'Atmospheric',
+    hint: 'Off-centre haze: near-neutrals of every hue, saturated only toward one',
+    available: true,
+  },
 ]
 
 /** Triad vertices sit here; the edges then sweep in toward the neutral centre. */
@@ -30,6 +78,30 @@ const TRIAD_RADIUS = 0.82
 const SPLIT_RADIUS = 0.85
 /** Degrees each split arm sits either side of the base hue's complement. */
 const SPLIT_SPREAD = 32
+
+/**
+ * Complementary: the long diamond Gurney pairs with the off-centre triangle as the two
+ * shapes worth experimenting with. Poles on opposite hues, a narrow waist across them, so
+ * the shape spans the whole wheel and contains the neutral — which is what makes the
+ * scheme stable: its own neutral coincides with the wheel's.
+ *
+ * The waist is what separates it from the split preset: wide enough that the mask has
+ * area near the centre and its edges are draggable, narrow enough that the palette reads
+ * as two hue families rather than a triad.
+ */
+const COMPLEMENT_RADIUS = 0.88
+const COMPLEMENT_WAIST = 0.17
+
+/**
+ * Rectangle: two complementary pairs, which is what a rectangle centred on the wheel
+ * necessarily is — opposite corners are diametrically opposite hues. Wider than tall so
+ * it reads as a rectangle rather than a square, and so the two pairs are not equally
+ * spaced: the long axis picks the dominant opposition and the short one a secondary.
+ *
+ * Corners land at about 61, 119, 241 and 299 degrees from the base hue, at radius 0.79.
+ */
+const RECTANGLE_HALF_WIDTH = 0.69
+const RECTANGLE_HALF_HEIGHT = 0.38
 
 const ANALOGOUS_HALF_WIDTH = 26
 const ANALOGOUS_INNER = 0.22
@@ -96,6 +168,45 @@ export function buildPreset(id: BuildablePresetId, baseAngle: number): Polygon {
         polar(baseAngle + 180 - SPLIT_SPREAD, SPLIT_RADIUS),
         polar(baseAngle + 180 + SPLIT_SPREAD, SPLIT_RADIUS),
       ])
+
+    /**
+     * The complementary diamond: two poles on opposite hues, pinched across the middle.
+     * Four vertices, all draggable — the waist pair is what lets the shape be widened
+     * into a triad-like mask or narrowed toward a bare line.
+     */
+    case 'complement':
+      return withPositiveWinding([
+        polar(baseAngle, COMPLEMENT_RADIUS),
+        polar(baseAngle + 90, COMPLEMENT_WAIST),
+        polar(baseAngle + 180, COMPLEMENT_RADIUS),
+        polar(baseAngle + 270, COMPLEMENT_WAIST),
+      ])
+
+    /**
+     * The rectangle, built from half-extents in wheel space rather than from four hue
+     * angles, because that is what guarantees it is actually a rectangle: taking four
+     * polar points at chosen hues gives a rectangle only if the radii are made to agree,
+     * and rounding there would show as a visibly lopsided shape.
+     *
+     * Rotated by the base angle afterwards, so it still turns with the base hue like
+     * every other preset.
+     */
+    case 'rectangle': {
+      const corners: Point[] = [
+        { x: RECTANGLE_HALF_WIDTH, y: -RECTANGLE_HALF_HEIGHT },
+        { x: RECTANGLE_HALF_WIDTH, y: RECTANGLE_HALF_HEIGHT },
+        { x: -RECTANGLE_HALF_WIDTH, y: RECTANGLE_HALF_HEIGHT },
+        { x: -RECTANGLE_HALF_WIDTH, y: -RECTANGLE_HALF_HEIGHT },
+      ]
+      const rad = (baseAngle * Math.PI) / 180
+      const cos = Math.cos(rad)
+      const sin = Math.sin(rad)
+      return withPositiveWinding(
+        clampPolygon(
+          corners.map(({ x, y }) => ({ x: x * cos - y * sin, y: x * sin + y * cos })),
+        ),
+      )
+    }
 
     /**
      * A wedge: a band of neighbouring hues between an inner and an outer radius. The

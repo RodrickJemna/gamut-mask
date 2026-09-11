@@ -19,6 +19,7 @@ import type { HistoryAction } from '../state/history.ts'
 import { MAX_SIZE, MIN_SIZE } from '../state/reducer.ts'
 import type { AppState } from '../state/types.ts'
 import { NumberField } from './NumberField.tsx'
+import { PresetIcon } from './PresetIcon.tsx'
 import { WheelChips } from './WheelChips.tsx'
 
 type Props = {
@@ -132,18 +133,25 @@ export function MaskPanel({
             </button>
           </div>
         </div>
+        {/*
+          D55 — icons in a 3x2 grid, not labels in a stack. Six presets as text would be
+          six full-width rows; as icons they are two, and the icon is the better label
+          anyway: the shape IS the thing being chosen, and "Split complementary" never fit
+          the panel's width in the first place. The name is on the tooltip and the
+          accessible label, so nothing is only conveyed by the picture.
+        */}
         <div className="presets">
           {PRESETS.map((preset) => (
             <button
               key={preset.id}
               type="button"
               aria-pressed={state.preset === preset.id}
+              aria-label={preset.label}
               disabled={!preset.available}
-              // The atmospheric preset has no agreed geometry yet; see mask/presets.ts.
-              title={preset.available ? undefined : 'Geometry not defined yet'}
+              title={`${preset.label} — ${preset.hint}`}
               onClick={() => dispatch({ type: 'loadPreset', id: preset.id })}
             >
-              {preset.label}
+              <PresetIcon id={preset.id} />
             </button>
           ))}
         </div>

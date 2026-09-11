@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.31
+Verzió: 0.32
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -149,6 +149,36 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D55 — Hat preset, ikonos rácsban.** A négy szöveges, egymás alatti gomb helyett hat
+  ikon 3×2-es rácsban.
+  - **Az ikon a preset saját kontúrja**, a `buildPreset` geometriájából rajzolva, nem
+    kézzel — ugyanaz a fegyelem, mint a kör-chipeknél (`renderDisk`) és a PDF-nél: egy
+    ikon nem tud eltérni attól a formától, amit betölt. A `viewBox` maga a kör-tér, mint a
+    MaskOverlay-ben, tehát a polygon koordinátái leképezés nélkül mennek bele.
+  - **Miért ikon**: hat szöveges gomb hat teljes szélességű sor lenne; ikonként kettő. És
+    az ikon a jobb címke: a **forma az, amit választunk**, a „Split complementary" pedig
+    eleve nem férte ki a panel szélességét. A név a tooltipben és az `aria-label`-ben van,
+    tehát semmit nem csak a kép közöl. Magasság: 129 px hatra, szemben a négy szöveges
+    gomb ~124 px-ével.
+  - **Két új forma, mindkettő a szakirodalomból.**
+    - **Complementary** — hosszú rombusz a körön át, szemközti hue-kkal. Gurney ezt és a
+      félrehúzott háromszöget nevezi meg *a két kipróbálandó* alakként; a jellege
+      „elemi ellentét, tűz és jég", és „meglehetősen stabil, mert a saját semlegese
+      egybeesik a kör közepével". Ez volt az egyetlen hiányzó Gurney-séma, amit a maskunk
+      egy polygonnal ki tud fejezni (a „Mood and accent" két szétvált régiót kíván).
+    - **Rectangle** — két komplementer pár, mert egy **középre tett téglalap
+      szükségszerűen az**: a szemközti csúcsok átellenes hue-k. Fél-kiterjedésekből épül,
+      nem négy hue-szögből, mert *ez* garantálja, hogy valóban téglalap: négy polárpont
+      csak akkor ad téglalapot, ha a rádiuszokat hozzáigazítjuk, és az ottani kerekítés
+      látható ferdeségként jelenne meg. Szélesebb, mint magas, tehát nem négyzet: a hosszú
+      tengely adja a domináns ellentétet, a rövid a másodlagosat.
+  - **Mérve, betöltés után**: a Complementary 10 színt ad, legjobb 60-30-10 egyensúly
+    **1.04**; a Rectangle **15 színt** — a legtöbbet az összes preset közül — és **1.00**-t.
+    Mindkettő tartalmazza a semlegest.
+  - **A `PRESETS` lista a rács olvasási sorrendje**, és minden tétel `hint`-et is hord (a
+    tooltip szövegét). A `presets.test.ts` `ALL` listája innentől **a `PRESETS`-ből
+    származik**: korábban négy elem volt beírva, tehát az új formák kimaradtak volna
+    minden invariáns-ellenőrzésből.
 - **D54 — 60-30-10 paletták a mask színeiből, a lap alján.** Legalább három javaslat
   maskonként, mindegyik egy arányos sávként.
   - **Mi tudomány és mi nem.** A 60-30-10 maga **tervezői ökölszabály**, nem
@@ -786,3 +816,7 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   sávként. A szerepeket Munsell egyensúly-elve szabja meg (A·V·C állandó), tehát a
   területek 0.6/0.3/0.1-nél 1:2:6 erősséget kívánnak; a `balance` szám kiírva mondja meg,
   ha egy mask ezt nem tudja. A mask-súgó a kör alá került, hogy legyen hely a sornak.
+- 0.32 — **hat preset ikonos rácsban (D55)**: a gombok a preset saját geometriájából
+  rajzolt ikonok, 3×2-ben. Két új forma: **Complementary** (Gurney hosszú rombusza, a
+  másik általa ajánlott alak) és **Rectangle** (két komplementer pár). A Rectangle adja a
+  legtöbb színt (15) és 1.00-s egyensúlyt.
