@@ -21,6 +21,7 @@ import {
   MATCH_TOLERANCE_PERCENT,
 } from '../paints/match.ts'
 import { BRANDS, BRAND_TAG, type Brand } from '../paints/types.ts'
+import { buildSchemes } from '../palette/scheme.ts'
 import { buildPdf, Content, type PdfImage } from './pdf.ts'
 import type { Surface } from './surface.ts'
 
@@ -42,6 +43,10 @@ const WHEEL_SIZE = 220
  * breakage a constant hides until someone reads a printed sheet.
  */
 const ENTRY_H = 12 + 9 * BRANDS.length
+
+/** D54 block: the proportional bar's width, and the height one scheme occupies. */
+const SCHEME_BAR_W = 200
+const SCHEME_H = 14 + 3 * 10 + 8
 const SWATCH = 13
 
 const TEXT = '#111111'
@@ -180,6 +185,86 @@ export function layoutSheet(
   }
 
   y = wheelTop + WHEEL_SIZE + 30
+
+  /**
+   * D54 — the 60-30-10 suggestions, on the sheet because the sheet is the thing that goes
+   * to the bench: knowing WHICH of the colours below is the 60% and which the 10% is the
+   * part you cannot reconstruct from a list of swatches.
+   *
+   * Laid out as a proportional bar plus one line per role, rather than labels aligned
+   * under the bar's segments as on screen. The bar here is 200pt wide, so its 10% segment
+   * is 20pt — not enough for a hex, let alone a paint name, which is the same reason the
+   * on-screen legend stopped being aligned to its segments.
+   */
+  const schemes = buildSchemes(samples, 3)
+  ensure(30)
+  c.text(MARGIN, y, '60-30-10', { size: 8, bold: true, hex: MUTED })
+  c.text(
+    MARGIN + 56,
+    y,
+    'Areas balance inversely to lightness x chroma (Munsell): the dominant is the most '
+      + 'muted, the accent the strongest.',
+    { size: 7, hex: DIM },
+  )
+  y += 6
+  c.line(MARGIN, y, PAGE_W - MARGIN, y, RULE, 0.5)
+  y += 14
+
+  if (schemes.length === 0) {
+    c.text(
+      MARGIN,
+      y,
+      samples.length < 3
+        ? `Only ${samples.length} distinguishable colour${samples.length === 1 ? '' : 's'}`
+          + ' in this mask — too few for a three-part palette.'
+        : 'No scheme: a palette needs an accent with some chroma in it.',
+      { size: 8, hex: DIM },
+    )
+    y += 16
+  }
+
+  for (const scheme of schemes) {
+    ensure(SCHEME_H)
+    const barTop = y - 8
+    let x = MARGIN
+    for (const role of scheme.roles) {
+      const w = SCHEME_BAR_W * role.share
+      c.rect(x, barTop, w, 11, toHex(role.sample.rgb8))
+      x += w
+    }
+    c.strokeRect(MARGIN, barTop, SCHEME_BAR_W, 11, RULE, 0.4)
+
+    const balance = `balance ${scheme.balance.toFixed(2)}`
+    c.text(MARGIN + SCHEME_BAR_W + 12, y, balance, { size: 8, hex: DIM })
+
+    y += 14
+    for (const role of scheme.roles) {
+      const hex = toHex(role.sample.rgb8)
+      c.text(MARGIN + 6, y, `${Math.round(role.share * 100)}%`, { size: 8, hex: MUTED })
+      c.text(MARGIN + 30, y, hex, { size: 8, hex: TEXT })
+      const matches = matchingPaints(role.sample.oklab, brands)
+      const paint =
+        brands.length === 0
+          ? ''
+          : matches.length === 0
+            ? `no paint within ${MATCH_TOLERANCE_PERCENT}%`
+            : matches
+                .map((m) => `${BRAND_TAG[m.paint.brand]} ${m.paint.ref} ${m.paint.name}`.trim())
+                .join(' / ')
+      if (paint) {
+        c.text(
+          MARGIN + 82,
+          y,
+          fit(c, paint, PAGE_W - MARGIN - (MARGIN + 82), 8),
+          { size: 8, hex: matches.length === 0 ? DIM : MUTED },
+        )
+      }
+      y += 10
+    }
+    y += 8
+  }
+
+  y += 6
 
   /**
    * Grouped exactly as the screen groups them, neutral group included. A colour with no

@@ -267,10 +267,6 @@ All three questions that were open during the build are settled, in spec version
   second and third fall to 2.5-3.2. This is reported, not hidden — but it means the strip
   is most useful on the triad and split presets, and a tight mask on the pastel wheel can
   produce no scheme at all because D47 leaves it only two distinguishable colours.
-- **The 60-30-10 strip is not on the exported sheet.** The PDF and JPEG carry the colour
-  list and its paint matches but not the schemes, so the bench artefact does not yet say
-  which colour is the 60% and which the 10%. Additive when wanted; the layout has room on
-  page one beside the mask block.
 
 ## 7. The one named later candidate
 

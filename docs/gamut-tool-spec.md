@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.33
+Verzió: 0.34
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -231,6 +231,12 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
     címkesor csak olvasható legyen.
   - **A mask-használati súgó a kör alá költözött** (a caveat mellé), és ez az, ami helyet
     adott ennek a sornak: nélküle a kontrollpanel 92 px-szel túlfolyt 1280×720-on.
+  - **Rajta van az exportált lapon is** (0.34-től): a lap az, ami a festőasztalra kerül, és
+    épp azt nem lehet swatchek listájából visszafejteni, hogy az alábbi színek közül
+    **melyik a 60% és melyik a 10%**. Arányos sáv + szerepenként egy sor (részarány, hex,
+    és a hozzá illő festék), nem a szakaszok alá igazított címkék: a lapon a sáv 200 pt, a
+    10%-os szakasza tehát 20 pt — ugyanaz az ok, amiért a képernyőn sem igazítottuk.
+    A `layoutSheet` közös, tehát a PDF és a JPEG együtt kapta meg.
 - **D53 — Váltható színkörök (négy változat, azonos geometria).** A kör eddig egy volt;
   most négy, és a választó a panel tetején van.
   - **Egy kör = egy KÖZÉP és egy PEREM.** A `sample` Oklabban interpolál a kettő között,
@@ -830,3 +836,6 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   egy elférő masknál pedig pontosan a régi érték, tehát az eredeti aszimmetria-javítás
   változatlan. A regressziós teszt a **kirajzolt csúcsok átlagán** mér, nem az offseten és
   nem a terület-centroidon (az utóbbi egy clampelt, elfajuló gyűrűn elszáll).
+- 0.34 — **a 60-30-10 az exportált lapon is (D54)**: arányos sáv, `balance` szám, és
+  szerepenként a részarány, a hex és a festéktalálat. A `layoutSheet` közös, tehát a PDF és
+  a JPEG egyszerre kapta meg.
