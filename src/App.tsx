@@ -11,6 +11,7 @@ import { MaskOverlay } from './components/MaskOverlay.tsx'
 import { MaskPanel } from './components/MaskPanel.tsx'
 import { SampleList } from './components/SampleList.tsx'
 import { HintTip } from './components/HintTip.tsx'
+import { PaintPicker } from './components/PaintPicker.tsx'
 import { SchemeStrip } from './components/SchemeStrip.tsx'
 import { WheelCanvas } from './components/WheelCanvas.tsx'
 import { toHex } from './color/format.ts'
@@ -23,6 +24,7 @@ import { buildSheet } from './export/sheet.ts'
 import { renderWheelImage } from './export/wheelImage.ts'
 import { sampleMask } from './geom/sample.ts'
 import { combinedField } from './paints/coverage.ts'
+import { loadInventory, saveInventory, type LoadedInventory } from './state/persist.ts'
 import {
   canRedo,
   canUndo,
@@ -30,6 +32,27 @@ import {
   initialHistory,
 } from './state/history.ts'
 import { MIN_VERTICES, displayPolygon, initialState } from './state/reducer.ts'
+import type { AppState } from './state/types.ts'
+
+/**
+ * The saved inventory, read at most once per page load.
+ *
+ * Memoised because two initialisers need it and re-reading would parse the fragment
+ * twice; deliberately lazy rather than module-scope, so importing this file does not
+ * touch `window`.
+ */
+let savedOnce: LoadedInventory | null | undefined
+function savedInventory(): LoadedInventory | null {
+  if (savedOnce === undefined) savedOnce = loadInventory()
+  return savedOnce
+}
+
+/** The initial state with the saved shelf folded in, if there is one to restore. */
+function withSavedInventory(base: AppState): AppState {
+  const saved = savedInventory()
+  if (!saved || saved.owned.length === 0) return base
+  return { ...base, owned: saved.owned }
+}
 
 export default function App() {
   /**
@@ -37,7 +60,15 @@ export default function App() {
    * actions as before plus `undo` and `redo`. Nothing below this line knows the
    * difference: `state` is the present, exactly as it was.
    */
-  const [history, dispatch] = useReducer(historyReducer, initialState, initialHistory)
+  /**
+   * D57 — the saved shelf is folded into the INITIAL state rather than dispatched from an
+   * effect. An effect would render once with an empty shelf and once with the real one,
+   * which means the matcher, the samples and the D50 field all compute twice on load and
+   * the first pass is wrong. Reading it here means the first render is already correct.
+   */
+  const [history, dispatch] = useReducer(historyReducer, initialState, (base) =>
+    initialHistory(withSavedInventory(base)),
+  )
   const state = history.present
 
   /**
@@ -101,7 +132,29 @@ export default function App() {
    */
   const [showUnreachable, setShowUnreachable] = useState(false)
 
+  /** D57 — the paint picker is a dialog, so its open state is presentational. */
+  const [pickerOpen, setPickerOpen] = useState(false)
+  /** Read at init, so it needs no state of its own. */
+  const droppedPaints = savedInventory()?.dropped ?? 0
+
+
   const { basePolygon, offset, rotation, size, enabledBrands } = state
+
+  /**
+   * The owned set, as a Set for the matcher and null when the filter is off.
+   *
+   * Null rather than an empty Set: the matcher reads null as "search whole catalogues"
+   * and an empty Set as "search nothing", and those are genuinely different answers.
+   * Memoised because the matcher keys its narrowed index on this object's identity.
+   */
+  const ownedSet = useMemo(
+    () => (state.ownedOnly ? new Set(state.owned) : null),
+    [state.ownedOnly, state.owned],
+  )
+
+  useEffect(() => {
+    saveInventory(state.owned)
+  }, [state.owned])
   /** D53 — the chosen wheel, resolved once and passed down rather than looked up twice. */
   const wheel = useMemo(() => wheelById(state.wheel), [state.wheel])
   const polygon = useMemo(
@@ -115,8 +168,8 @@ export default function App() {
    * heavy work itself, so this is only about not repainting for free.
    */
   const unreachable = useMemo(
-    () => (showUnreachable ? combinedField(enabledBrands, state.wheel) : null),
-    [showUnreachable, enabledBrands, state.wheel],
+    () => (showUnreachable ? combinedField(enabledBrands, state.wheel, ownedSet) : null),
+    [showUnreachable, enabledBrands, state.wheel, ownedSet],
   )
 
   const sheetContent = useMemo(
@@ -124,12 +177,13 @@ export default function App() {
       samples,
       polygon,
       brands: enabledBrands,
+      owned: ownedSet,
       preset: PRESETS.find((p) => p.id === state.preset)?.label ?? null,
       wheel,
       rotation,
       size,
     }),
-    [samples, polygon, enabledBrands, state.preset, wheel, rotation, size],
+    [samples, polygon, enabledBrands, ownedSet, state.preset, wheel, rotation, size],
   )
 
   /**
@@ -202,6 +256,9 @@ export default function App() {
         <MaskPanel
           state={state}
           dispatch={dispatch}
+          owned={ownedSet}
+          onOpenPicker={() => setPickerOpen(true)}
+          droppedPaints={droppedPaints}
           canUndo={canUndo(history)}
           canRedo={canRedo(history)}
           showUnreachable={showUnreachable}
@@ -213,6 +270,7 @@ export default function App() {
       <SampleList
         samples={samples}
         brands={enabledBrands}
+        owned={ownedSet}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />
@@ -225,9 +283,17 @@ export default function App() {
       <SchemeStrip
         samples={samples}
         brands={enabledBrands}
+        owned={ownedSet}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />
+      {pickerOpen && (
+        <PaintPicker
+          owned={state.owned}
+          dispatch={dispatch}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
       {/* D56 — one hover explanation for the whole app; see HintTip. */}
       <HintTip />
     </main>

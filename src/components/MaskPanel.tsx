@@ -31,6 +31,16 @@ type Props = {
   /** D50 — whether the wheel shades what no enabled paint reaches. */
   showUnreachable: boolean
   onToggleUnreachable: (on: boolean) => void
+  /**
+   * The shelf matching is restricted to, or null (D57). Needed here so the brand
+   * checkboxes count what each brand actually CONTRIBUTES to the search — showing 647
+   * beside AK while only three AK pots are being searched is a number that lies.
+   */
+  owned: ReadonlySet<string> | null
+  /** D57 — opens the shelf dialog. */
+  onOpenPicker: () => void
+  /** Paints a restored shelf named that this build no longer has (D57). */
+  droppedPaints: number
   /** Builds and downloads the PDF sheet; returns the filename used (D43). */
   onSaveSheet: () => string
   /** Same sheet as a single JPEG; returns the filename used (D45). */
@@ -44,6 +54,9 @@ export function MaskPanel({
   canRedo,
   showUnreachable,
   onToggleUnreachable,
+  owned,
+  onOpenPicker,
+  droppedPaints,
   onSaveSheet,
   onSaveJpeg,
 }: Props) {
@@ -297,7 +310,12 @@ export function MaskPanel({
               <label
                 key={brand}
                 data-hint={brand}
-                data-hint-body={`${paintCount(brand)} paints matched independently of the other brands, so a colour can match several. Turning a brand off shortens every card in the list.`}
+                data-hint-body={
+                  `${paintCount(brand, owned)} paints being searched`
+                  + (owned ? ` of ${paintCount(brand)} in the catalogue` : '')
+                  + '. Brands are matched independently, so a colour can match several.'
+                  + ' Turning one off shortens every card in the list.'
+                }
               >
                 <input
                   type="checkbox"
@@ -305,13 +323,50 @@ export function MaskPanel({
                   onChange={() => dispatch({ type: 'toggleBrand', brand })}
                 />
                 <span className="brand-tag">{BRAND_TAG[brand]}</span>
-                <span className="brand-count">{paintCount(brand)}</span>
+                <span className="brand-count">{paintCount(brand, owned)}</span>
               </label>
             )
           })}
         </div>
         {state.enabledBrands.length === 0 && (
           <p className="samples-note">Paint matching off.</p>
+        )}
+
+        {/*
+          D57 — the shelf. Below the brand boxes because it narrows what they leave: the
+          two filters compose, and reading them in that order is how they apply.
+        */}
+        <div className="shelf">
+          <button
+            type="button"
+            className="shelf-open"
+            onClick={onOpenPicker}
+            data-hint="My paints"
+            data-hint-body="Tick the pots you actually own. Matching can then be restricted to them, which turns 'which paint is closest' into 'can I paint this tonight'. Saved in the page's link, so a reload keeps it — bookmark the URL again to carry a change into the next cold start."
+          >
+            My paints
+            <span className="brand-count">{state.owned.length}</span>
+          </button>
+          {state.owned.length > 0 && (
+            <label
+              className="snap"
+              data-hint="Only mine"
+              data-hint-body="Match against the ticked paints alone, instead of the whole catalogues. A brand you own nothing from simply stops appearing."
+            >
+              <input
+                type="checkbox"
+                checked={state.ownedOnly}
+                onChange={(e) => dispatch({ type: 'setOwnedOnly', only: e.currentTarget.checked })}
+              />
+              Only mine
+            </label>
+          )}
+        </div>
+        {droppedPaints > 0 && (
+          <p className="samples-note">
+            {droppedPaints} saved {droppedPaints === 1 ? 'paint is' : 'paints are'} no longer
+            in the catalogue and {droppedPaints === 1 ? 'was' : 'were'} dropped.
+          </p>
         )}
       </section>
 

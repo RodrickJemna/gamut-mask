@@ -28,6 +28,8 @@ import { buildSchemes, strength, type Scheme } from '../palette/scheme.ts'
 type Props = {
   samples: Sample[]
   brands: readonly Brand[]
+  /** The shelf to restrict matching to, or null for the whole catalogues (D57). */
+  owned: ReadonlySet<string> | null
   /** Index into `samples`, for the D46 ring on the wheel. */
   onHighlight: (index: number | null) => void
   highlighted: number | null
@@ -35,7 +37,7 @@ type Props = {
 
 const ROLE_NAMES = ['Dominant', 'Secondary', 'Accent']
 
-export function SchemeStrip({ samples, brands, onHighlight, highlighted }: Props) {
+export function SchemeStrip({ samples, brands, owned, onHighlight, highlighted }: Props) {
   const schemes = useMemo(() => buildSchemes(samples, 3), [samples])
 
   /**
@@ -54,7 +56,7 @@ export function SchemeStrip({ samples, brands, onHighlight, highlighted }: Props
     for (const scheme of schemes) {
       for (const role of scheme.roles) {
         if (map.has(role.sample)) continue
-        const matches = matchingPaints(role.sample.oklab, brands)
+        const matches = matchingPaints(role.sample.oklab, brands, owned)
         map.set(
           role.sample,
           matches.length === 0
@@ -66,7 +68,7 @@ export function SchemeStrip({ samples, brands, onHighlight, highlighted }: Props
       }
     }
     return map
-  }, [schemes, brands])
+  }, [schemes, brands, owned])
 
   return (
     <section className="schemes" aria-label="60-30-10 palettes">

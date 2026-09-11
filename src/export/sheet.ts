@@ -61,6 +61,8 @@ export type SheetContent = {
   samples: Sample[]
   /** Brands to match against (D48). Empty omits the paint lines entirely. */
   brands: readonly Brand[]
+  /** The shelf matching is restricted to, or null for the whole catalogues (D57). */
+  owned: ReadonlySet<string> | null
   polygon: { x: number; y: number }[]
   preset: string | null
   /**
@@ -108,7 +110,7 @@ export function layoutSheet(
   input: SheetContent,
   options: LayoutOptions,
 ): number {
-  const { samples, polygon, preset, wheel, rotation, size, brands } = input
+  const { samples, polygon, preset, wheel, rotation, size, brands, owned } = input
   let c = surface
   let y = 0
 
@@ -176,6 +178,9 @@ export function layoutSheet(
     brands.length === 0 ? 'Off' : brands.join(', ')
   for (const line of [
     `Brands: ${brandLine}`,
+    // Stated on the sheet, because a sheet matched against a shelf of sixty pots is not
+    // the same document as one matched against 1540 and must not read like it.
+    ...(owned ? [`Restricted to ${owned.size} owned paints.`] : []),
     `Nearest within ${MATCH_TOLERANCE_PERCENT}% in Oklab.`,
     'Catalogue swatch colours, not measured',
     'paint — a starting point, not a reading.',
@@ -248,7 +253,7 @@ export function layoutSheet(
       const hex = toHex(role.sample.rgb8)
       c.text(MARGIN + 6, y, `${Math.round(role.share * 100)}%`, { size: 8, hex: MUTED })
       c.text(MARGIN + 30, y, hex, { size: 8, hex: TEXT })
-      const matches = matchingPaints(role.sample.oklab, brands)
+      const matches = matchingPaints(role.sample.oklab, brands, owned)
       const paint =
         brands.length === 0
           ? ''
@@ -321,7 +326,7 @@ export function layoutSheet(
       for (let col = 0; col < cols; col++) {
         const sample = bucket[row * cols + col]
         if (!sample) break
-        drawEntry(c, sample, MARGIN + col * (colW + GUTTER), top, colW, brands)
+        drawEntry(c, sample, MARGIN + col * (colW + GUTTER), top, colW, brands, owned)
       }
       y += ENTRY_H
     }
@@ -364,6 +369,7 @@ function drawEntry(
   top: number,
   colW: number,
   brands: readonly Brand[],
+  owned: ReadonlySet<string> | null,
 ): void {
   const hex = toHex(sample.rgb8)
   c.rect(x, top - SWATCH + 2, SWATCH, SWATCH, hex)
@@ -374,10 +380,10 @@ function drawEntry(
   const nums = `L ${lightnessLabel(sample.oklab.L)}   S ${saturationLabel(sample.t)}%`
   c.text(x + colW - 20 - c.measure(nums, 7.5), top, nums, { size: 7.5, hex: DIM })
 
-  const matches = matchingPaints(sample.oklab, brands)
+  const matches = matchingPaints(sample.oklab, brands, owned)
   if (matches.length === 0) {
     // Nothing at all when no brand is being searched — see D48.
-    const closest = closestOverall(sample.oklab, brands)
+    const closest = closestOverall(sample.oklab, brands, owned)
     if (closest === null) return
     const delta = `${differencePercent(closest.distance)}%`
     c.text(textX, top + 9, 'No paint found', { size: 7.5, hex: DIM })

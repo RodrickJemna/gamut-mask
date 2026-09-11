@@ -30,6 +30,7 @@
 
 import type { Oklab } from '../color/oklab.ts'
 import { WHEELS, sample, type WheelId, type WheelSpec, wheelById } from '../color/wheel.ts'
+import { paintKey } from './inventory.ts'
 import { MATCH_TOLERANCE_PERCENT, hexToOklab, oklabDistance } from './match.ts'
 import { PAINTS, type Brand } from './catalogue.ts'
 
@@ -57,18 +58,42 @@ for (const paint of PAINTS) {
 const FIELDS = new Map<string, Float32Array>()
 
 /**
+ * The brand's colours, narrowed to the shelf when one is in use (D57).
+ *
+ * NOT cached in FIELDS's string key, because an owned set has no short stable name — the
+ * owned-set fields live in their own WeakMap so a superseded shelf can be collected
+ * rather than pinning a 23k-cell field forever.
+ */
+function ownedLabs(brand: Brand, owned: ReadonlySet<string> | null): Oklab[] {
+  const all = LABS_BY_BRAND.get(brand) ?? []
+  if (!owned) return all
+  const paints = PAINTS.filter((p) => p.brand === brand)
+  return all.filter((_, i) => owned.has(paintKey(paints[i])))
+}
+
+const OWNED_FIELDS = new WeakMap<ReadonlySet<string>, Map<string, Float32Array>>()
+
+/**
  * Nearest-paint distance for every cell of one brand's grid, memoised.
  *
  * Deliberately no early exit on "close enough": the value near the threshold is what the
  * interpolation needs, and a field of clamped values would draw a boundary in the wrong
  * place.
  */
-export function brandField(brand: Brand, wheel: WheelSpec = WHEELS[0]): Float32Array {
+export function brandField(
+  brand: Brand,
+  wheel: WheelSpec = WHEELS[0],
+  owned: ReadonlySet<string> | null = null,
+): Float32Array {
   const key = `${wheel.id}|${brand}`
-  const cached = FIELDS.get(key)
+  const store = owned
+    ? (OWNED_FIELDS.get(owned) ?? new Map<string, Float32Array>())
+    : FIELDS
+  if (owned) OWNED_FIELDS.set(owned, store)
+  const cached = store.get(key)
   if (cached) return cached
 
-  const labs = LABS_BY_BRAND.get(brand) ?? []
+  const labs = ownedLabs(brand, owned)
   const field = new Float32Array(FIELD_THETA * FIELD_T)
   for (let i = 0; i < FIELD_THETA; i++) {
     for (let j = 0; j < FIELD_T; j++) {
@@ -81,11 +106,24 @@ export function brandField(brand: Brand, wheel: WheelSpec = WHEELS[0]): Float32A
       field[i * FIELD_T + j] = best
     }
   }
-  FIELDS.set(key, field)
+  store.set(key, field)
   return field
 }
 
 const COMBINED = new Map<string, Float32Array>()
+const OWNED_COMBINED = new WeakMap<ReadonlySet<string>, Map<string, Float32Array>>()
+
+/** Per-cell minimum across the given fields. */
+function combine(fields: Float32Array[]): Float32Array {
+  const out = Float32Array.from(fields[0])
+  for (let f = 1; f < fields.length; f++) {
+    const other = fields[f]
+    for (let i = 0; i < out.length; i++) {
+      if (other[i] < out[i]) out[i] = other[i]
+    }
+  }
+  return out
+}
 
 /**
  * The nearest distance across all of `brands`, or null when none are enabled.
@@ -97,10 +135,21 @@ const COMBINED = new Map<string, Float32Array>()
 export function combinedField(
   brands: readonly Brand[],
   wheelId: WheelId = WHEELS[0].id,
+  owned: ReadonlySet<string> | null = null,
 ): Float32Array | null {
   if (brands.length === 0) return null
   const wheel = wheelById(wheelId)
   const key = `${wheel.id}|${[...brands].sort().join('|')}`
+  // A shelf keyed by identity, for the same reason as the per-brand fields above.
+  if (owned) {
+    const store = OWNED_COMBINED.get(owned) ?? new Map<string, Float32Array>()
+    OWNED_COMBINED.set(owned, store)
+    const hit = store.get(key)
+    if (hit) return hit
+    const built = combine(brands.map((brand) => brandField(brand, wheel, owned)))
+    store.set(key, built)
+    return built
+  }
   const cached = COMBINED.get(key)
   if (cached) return cached
 

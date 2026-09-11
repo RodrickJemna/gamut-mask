@@ -53,12 +53,14 @@ type Props = {
   samples: Sample[]
   /** Brands to match against (D48). Empty means paint matching is off entirely. */
   brands: readonly Brand[]
+  /** The shelf to restrict matching to, or null for the whole catalogues (D57). */
+  owned: ReadonlySet<string> | null
   /** Index into `samples` currently highlighted on the wheel, or null (D46). */
   highlighted: number | null
   onHighlight: (index: number | null) => void
 }
 
-export function SampleList({ samples, brands, highlighted, onHighlight }: Props) {
+export function SampleList({ samples, brands, owned, highlighted, onHighlight }: Props) {
   const [copied, setCopied] = useState<string | null>(null)
 
   /**
@@ -77,10 +79,10 @@ export function SampleList({ samples, brands, highlighted, onHighlight }: Props)
   const matched = useMemo(
     () =>
       samples.map((sample) => ({
-        matches: matchingPaints(sample.oklab, brands),
-        closest: closestOverall(sample.oklab, brands),
+        matches: matchingPaints(sample.oklab, brands, owned),
+        closest: closestOverall(sample.oklab, brands, owned),
       })),
-    [samples, brands],
+    [samples, brands, owned],
   )
 
   /**
