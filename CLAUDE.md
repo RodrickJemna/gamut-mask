@@ -42,6 +42,10 @@ The inventory persists in the URL fragment, not in `localStorage`: the app is op
 disk in Safari, which blocks web storage on `file://` origins. Storage is attempted
 opportunistically and never depended on.
 
+`docs/todo.md` is the queue of features the author has asked for but that are not built.
+Both current entries need a section 7 non-goal reopened explicitly first, the way D40
+reopened D11 — check it before proposing either as if it were free.
+
 `docs/setup-macos.md` documents how the toolchain was installed. Historical reference.
 
 ## Phase
