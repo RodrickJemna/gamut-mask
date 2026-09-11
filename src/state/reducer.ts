@@ -9,7 +9,7 @@ import { DEFAULT_WHEEL, angleOf, polar, radiusOf, type Point } from '../color/wh
 import { centroid, clampPolygon, clampToDisk } from '../geom/polygon.ts'
 import { rotate, scale, translate } from '../geom/transform.ts'
 import { buildPreset, type PresetId } from '../mask/presets.ts'
-import { BRANDS } from '../paints/types.ts'
+import { BRANDS, type Brand } from '../paints/types.ts'
 import type { Action, AppState } from './types.ts'
 
 export const MIN_VERTICES = 3
@@ -19,10 +19,24 @@ export const MAX_SIZE = 1
 
 const DEFAULT_PRESET: PresetId = 'triad'
 
+/**
+ * The only brand matched on startup (D48, amended in 0.30).
+ *
+ * Every brand used to be on, which meant four paint lines under every colour before the
+ * author had said which paints they own — a card 108 px tall and a list that scrolls,
+ * mostly with bottles they cannot reach for. One brand is the honest default: the filter
+ * is there to add the others.
+ *
+ * AK Interactive because it is the author's own shelf. Not derived from BRANDS[0] — that
+ * it happens to be first is a coincidence of the order the catalogues were added, and
+ * reordering them must not silently change which paints the app starts with.
+ */
+const DEFAULT_BRAND: Brand = 'AK'
+
 export const initialState: AppState = {
   basePolygon: buildPreset('triad', 0),
   offset: { x: 0, y: 0 },
-  enabledBrands: [...BRANDS],
+  enabledBrands: [DEFAULT_BRAND],
   wheel: DEFAULT_WHEEL,
   rotation: 0,
   size: 1,

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { polar, radiusOf } from '../color/wheel.ts'
 import { centroid } from '../geom/polygon.ts'
 import { buildPreset } from '../mask/presets.ts'
-import { BRANDS } from '../paints/types.ts'
+import { BRANDS, type Brand } from '../paints/types.ts'
 import {
   MAX_SIZE,
   MIN_SIZE,
@@ -186,30 +186,49 @@ describe('slider clamps', () => {
 })
 
 describe('brand filter (D48)', () => {
-  it('starts with every brand enabled', () => {
-    expect(initialState.enabledBrands).toEqual([...BRANDS])
+  /**
+   * These build their own starting point instead of assuming the default set. They used
+   * to lean on "everything is on", which made them fail the moment the default became
+   * one brand — a test asserting a default is fine, a test quietly depending on one is
+   * not.
+   */
+  const withBrands = (...brands: Brand[]): AppState => {
+    let st = initialState
+    for (const brand of BRANDS) {
+      const wanted = brands.includes(brand)
+      if (st.enabledBrands.includes(brand) !== wanted) {
+        st = reducer(st, { type: 'toggleBrand', brand })
+      }
+    }
+    return st
+  }
+
+  it('starts with AK alone, not with every brand', () => {
+    expect(initialState.enabledBrands).toEqual(['AK'])
   })
 
   it('toggles a brand off and back on', () => {
-    const off = reducer(initialState, { type: 'toggleBrand', brand: BRANDS[0] })
-    expect(off.enabledBrands).not.toContain(BRANDS[0])
-    const on = reducer(off, { type: 'toggleBrand', brand: BRANDS[0] })
-    expect(on.enabledBrands).toEqual([...BRANDS])
+    const off = reducer(initialState, { type: 'toggleBrand', brand: 'AK' })
+    expect(off.enabledBrands).toEqual([])
+    const on = reducer(off, { type: 'toggleBrand', brand: 'AK' })
+    expect(on.enabledBrands).toEqual(['AK'])
   })
 
   it('keeps BRANDS order, so paint rows do not reshuffle as brands are toggled', () => {
+    // Enabled in reverse order; the state must still list them in BRANDS order.
     let st = initialState
-    for (const brand of BRANDS) st = reducer(st, { type: 'toggleBrand', brand })
     for (const brand of [...BRANDS].reverse()) {
-      st = reducer(st, { type: 'toggleBrand', brand })
+      if (!st.enabledBrands.includes(brand)) {
+        st = reducer(st, { type: 'toggleBrand', brand })
+      }
     }
     expect(st.enabledBrands).toEqual([...BRANDS])
   })
 
-  it('allows every brand to be turned off', () => {
-    let st = initialState
-    for (const brand of BRANDS) st = reducer(st, { type: 'toggleBrand', brand })
-    expect(st.enabledBrands).toEqual([])
+  it('allows every brand to be turned on and off again', () => {
+    const all = withBrands(...BRANDS)
+    expect(all.enabledBrands).toEqual([...BRANDS])
+    expect(withBrands().enabledBrands).toEqual([])
   })
 
   it('leaves the mask untouched', () => {

@@ -204,13 +204,13 @@ All three questions that were open during the build are settled, in spec version
   handles overlap again and the answer is still to scale the mask up to edit it.
 - **Export lands in the browser's download folder**, not beside the HTML. No page can
   create a folder next to itself; see D43.
-- **The colour list scrolls at 1280x720 with three or more brands.** D47 made the list short
-  (seven colours for a triad, eight to eleven for the arc presets), but each card carries
-  one paint line per brand, so each catalogue adds about 18px to every card: 71px at two
-  brands, 89px at three, 108px at four, with the column overflowing by 34px, 125px and
-  216px respectively. It scrolls internally while
-  the wheel and controls stay put, which is what D41 asks for; nothing is unreachable.
-  Turning brands off shortens the cards again.
+- **The colour list scrolls once several brands are enabled.** Each card carries one
+  paint line per brand, so each catalogue adds about 18px to it: 53px with one brand,
+  71px at two, 89px at three, 108px at four. At the 0.30 default of AK alone the whole
+  list fits at 1280x720 with nothing to scroll; at four brands the column overflows by
+  about 216px and scrolls internally, while the wheel and controls stay put, which is what
+  D41 asks for. Nothing is ever unreachable, and turning a brand off shortens every card
+  again.
 - **Paint coverage is partial, by brand.** AK: 647 from the equivalence tables (3GEN plus
   the AFV/FIG/AIR series) and the Real Colors grids; excluded are the pigment powders and
   auxiliary products, and two rows with no swatch at all (AK11001 White, AK11191 Gold).

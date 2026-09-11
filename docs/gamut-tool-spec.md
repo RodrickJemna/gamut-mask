@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.29
+Verzió: 0.30
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -371,6 +371,14 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
     tartva, nem kattintási sorrendben — különben a festéksorok átrendeződnének
     ki/bekapcsolásra. Az állapotban, mert megváltoztatja, mit mond a lista és mindkét
     export, és mert pont ez az, amit egy mentett fájlnak hordoznia kell (D18).
+  - **Indulásnál csak az AK Interactive van bekapcsolva** (0.30-ban módosítva). Korábban
+    mind, ami azt jelentette, hogy minden szín alatt négy festéksor állt, még mielőtt a
+    szerző megmondta volna, milyen festéke van — 108 px magas kártyák és egy scrollozó
+    lista, nagyrészt olyan tégelyekkel, amikhez nem tud hozzányúlni. Egy gyártó az
+    őszinte default; a szűrő arra van, hogy a többit hozzáadja. Az AK azért, mert az a
+    szerző polca. **Nem `BRANDS[0]`-ból származik**: hogy épp az első, az a katalógusok
+    hozzáadási sorrendjének véletlenje, és az átrendezésük nem változtathatja meg
+    csendben, mivel indul az app.
   - **Az üres szűrő engedve**, és azt jelenti, hogy „nincs festék-illesztés". Ez
     **szándékosan más**, mint a „kerestünk és nem találtunk": ilyenkor a UI **semmit**
     nem ír a festéksorba, nem „No paint found"-ot — az utóbbi hamis állítás lenne, mert
@@ -719,3 +727,6 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   panel tetején. Egy kör = egy közép + egy perem; a szögkonvenció közös, tehát a mask
   átvihető és az anchorok maradnak. A muted 97.4%-os festék-elérhetőséggel a praktikus
   változat a régi 60.1% ellenében. A D10-es caveat a kör alá került, ahol van hely.
+- 0.30 — **indulásnál csak az AK Interactive** (D48 módosítása): négy bekapcsolt gyártó
+  négy festéksort jelentett minden szín alatt, mielőtt bárki megmondta volna, milyen
+  festéke van. A default egy gyártó, a többi a szűrőből jön.
