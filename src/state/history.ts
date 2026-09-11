@@ -14,8 +14,10 @@
  *   - DISCRETE (loadPreset, addVertex, deleteVertex, toggleBrand): always a new step.
  *   - MERGEABLE (moveVertex, dragMask, setRotation, setSize): a run of them with the same
  *     merge key collapses into one step, so a gesture is one undo.
- *   - TRANSIENT (beginDrag, endDrag): never a step. They only move `dragging`, which is
- *     pointer bookkeeping rather than something you would want back.
+ *   - TRANSIENT (beginDrag, endDrag, and the D57 inventory edits): never a step.
+ *     begin/endDrag only move `dragging`, which is pointer bookkeeping. The inventory is
+ *     a fact about the shelf rather than an edit to the mask, and ticking sixty paints
+ *     must not bury the shape you were working on under sixty undo steps.
  *
  * The merge key includes the vertex index, so dragging vertex 0 and then vertex 1 without
  * an intervening action is still two steps. `endDrag` clears the key even though it
@@ -77,18 +79,37 @@ function mergeKeyOf(action: Action): string | null {
   }
 }
 
-/** Actions that must never create a step: they carry no state worth returning to. */
+/** Actions that must never create a step: see the classification above. */
 function isTransient(action: Action): boolean {
-  return action.type === 'beginDrag' || action.type === 'endDrag'
+  return (
+    action.type === 'beginDrag'
+    || action.type === 'endDrag'
+    || action.type === 'toggleOwned'
+    || action.type === 'setOwned'
+    || action.type === 'setOwnedOnly'
+  )
 }
 
 /**
- * Restoring drops `dragging`. A recorded step may have been captured mid-gesture, and
- * coming back to a state that claims a vertex is being dragged when the pointer is long
- * since up leaves a handle stuck in its active style.
+ * Turns a recorded snapshot back into a present state.
+ *
+ * Two corrections, both about fields the steps were never about:
+ *
+ * `dragging` is dropped, because a step may have been captured mid-gesture and coming
+ * back to a state that claims a vertex is held leaves a handle stuck in its active style.
+ *
+ * The INVENTORY IS CARRIED FORWARD from the current present rather than restored. The
+ * stack stores whole snapshots, so a step recorded before the shelf was stocked still
+ * contains the empty shelf — and restoring it would quietly un-tick paints that were
+ * never part of that step. A field excluded from history (see `isTransient`) has to be
+ * excluded on the way back too, or it is only half excluded.
  */
-const settled = (state: AppState): AppState =>
-  state.dragging === null ? state : { ...state, dragging: null }
+const restore = (snapshot: AppState, current: AppState): AppState => ({
+  ...snapshot,
+  dragging: null,
+  owned: current.owned,
+  ownedOnly: current.ownedOnly,
+})
 
 export const initialHistory = (state: AppState): HistoryState => ({
   past: [],
@@ -103,7 +124,7 @@ export function historyReducer(state: HistoryState, action: HistoryAction): Hist
     const previous = state.past[state.past.length - 1]
     return {
       past: state.past.slice(0, -1),
-      present: settled(previous),
+      present: restore(previous, state.present),
       future: [state.present, ...state.future],
       // An undone step must not merge into whatever is dispatched next, or the first
       // slider nudge after an undo would overwrite the step it just restored.
@@ -116,7 +137,7 @@ export function historyReducer(state: HistoryState, action: HistoryAction): Hist
     const [next, ...rest] = state.future
     return {
       past: [...state.past, state.present],
-      present: settled(next),
+      present: restore(next, state.present),
       future: rest,
       lastKey: null,
     }

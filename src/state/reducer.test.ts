@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { polar, radiusOf } from '../color/wheel.ts'
 import { centroid } from '../geom/polygon.ts'
 import { PRESETS, buildPreset, type PresetId } from '../mask/presets.ts'
+import { PAINTS } from '../paints/catalogue.ts'
 import { BRANDS, type Brand } from '../paints/types.ts'
 import {
   MAX_SIZE,
@@ -667,5 +668,69 @@ describe('dragging follows the pointer (D42)', () => {
           .toBeLessThan(0.05)
       }
     }
+  })
+})
+
+describe('inventory (D57)', () => {
+  const keys = PAINTS.slice(0, 5).map((p) => `${p.brand}|${p.ref}`)
+
+  it('starts empty and not filtering', () => {
+    expect(initialState.owned).toEqual([])
+    expect(initialState.ownedOnly).toBe(false)
+  })
+
+  it('toggles a paint on and off', () => {
+    const on = reducer(initialState, { type: 'toggleOwned', key: keys[0] })
+    expect(on.owned).toEqual([keys[0]])
+    expect(reducer(on, { type: 'toggleOwned', key: keys[0] }).owned).toEqual([])
+  })
+
+  it('ignores a paint the catalogue does not have', () => {
+    expect(reducer(initialState, { type: 'toggleOwned', key: 'AK|NOPE' }).owned).toEqual([])
+  })
+
+  /**
+   * The list stays canonical so the encoded inventory is a function of the SET — ticking
+   * two paints in either order must give the same saved token.
+   */
+  it('keeps the list in catalogue order whatever order it was ticked in', () => {
+    const forwards = [keys[3], keys[0], keys[4]].reduce(
+      (st, key) => reducer(st, { type: 'toggleOwned', key }),
+      initialState,
+    )
+    const backwards = [keys[4], keys[3], keys[0]].reduce(
+      (st, key) => reducer(st, { type: 'toggleOwned', key }),
+      initialState,
+    )
+    expect(forwards.owned).toEqual(backwards.owned)
+    expect(forwards.owned).toEqual([keys[0], keys[3], keys[4]])
+  })
+
+  it('sets the whole shelf at once, and is a no-op for the same set', () => {
+    const st = reducer(initialState, { type: 'setOwned', keys })
+    expect(st.owned).toHaveLength(5)
+    expect(reducer(st, { type: 'setOwned', keys: [...keys].reverse() })).toBe(st)
+  })
+
+  /**
+   * Filtering to an empty shelf would match nothing and read as a broken app, so the
+   * flag refuses to turn on until there is something to filter to.
+   */
+  it('will not filter to an empty shelf', () => {
+    expect(reducer(initialState, { type: 'setOwnedOnly', only: true }).ownedOnly).toBe(false)
+    const stocked = reducer(initialState, { type: 'setOwned', keys })
+    expect(reducer(stocked, { type: 'setOwnedOnly', only: true }).ownedOnly).toBe(true)
+  })
+
+  it('leaves the mask alone', () => {
+    const posed = reducer(initialState, { type: 'setRotation', deg: 42 })
+    const st = reducer(posed, { type: 'toggleOwned', key: keys[0] })
+    expect(st.basePolygon).toEqual(posed.basePolygon)
+    expect(st.rotation).toBe(42)
+  })
+
+  it('stays JSON-serialisable, which is the point of an array (D18)', () => {
+    const st = reducer(initialState, { type: 'setOwned', keys })
+    expect(JSON.parse(JSON.stringify(st))).toEqual(st)
   })
 })

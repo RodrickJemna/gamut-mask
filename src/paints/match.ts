@@ -14,6 +14,13 @@
  * the filter is a plain argument and the functions stay pure. An empty list means "do
  * not match paint", which is deliberately different from "searched and found nothing".
  *
+ * SINCE D57 an optional OWNED SET narrows it further, to the pots actually on the shelf.
+ * It is a second, independent filter rather than a replacement for the brand one: "AK,
+ * only what I own" is a sensible thing to ask, and so is either half alone. Passing it as
+ * an argument keeps these functions pure, but the per-brand candidate lists have to be
+ * rebuilt for it, so the narrowed index is memoised on the owned set's identity — the set
+ * changes when a checkbox is ticked, not while a mask is dragged.
+ *
  * WHAT THIS CANNOT DO, stated because the numbers look more authoritative than they are:
  * the catalogue swatches are the manufacturer's print renderings, not measurements of
  * dried paint, and D10 already says the pipeline assumes sRGB and does not predict
@@ -23,6 +30,7 @@
 
 import { lrgbToOklab, oklabDistance, srgbToLinear, type Oklab } from '../color/oklab.ts'
 import { PAINTS } from './catalogue.ts'
+import { paintKey } from './inventory.ts'
 import { BRANDS, type Brand, type Paint } from './types.ts'
 
 export type PaintMatch = {
@@ -130,11 +138,52 @@ const BY_BRAND: ReadonlyMap<Brand, readonly { paint: Paint; lab: Oklab }[]> = ne
  * Ties break toward the earlier catalogue entry, which is stable because each brand's
  * data is sorted by range then ref.
  */
-export function nearestPaintOfBrand(target: Oklab, brand: Brand): PaintMatch {
-  const candidates = BY_BRAND.get(brand)
-  if (!candidates || candidates.length === 0) {
-    throw new Error(`No paints loaded for brand ${brand}`)
+/**
+ * Candidate lists narrowed to an owned set, memoised on that set's identity.
+ *
+ * Keyed by the Set object rather than by its contents: the state holds one array per
+ * inventory change, so identity is exactly as stable as the inventory itself, and a WeakMap
+ * lets a superseded set be collected instead of accumulating.
+ */
+const OWNED_INDEX = new WeakMap<
+  ReadonlySet<string>,
+  Map<Brand, readonly { paint: Paint; lab: Oklab }[]>
+>()
+
+function candidatesFor(
+  brand: Brand,
+  owned: ReadonlySet<string> | null,
+): readonly { paint: Paint; lab: Oklab }[] {
+  const all = BY_BRAND.get(brand) ?? []
+  if (!owned) return all
+
+  let narrowed = OWNED_INDEX.get(owned)
+  if (!narrowed) {
+    narrowed = new Map()
+    OWNED_INDEX.set(owned, narrowed)
   }
+  const cached = narrowed.get(brand)
+  if (cached) return cached
+  const filtered = all.filter((entry) => owned.has(paintKey(entry.paint)))
+  narrowed.set(brand, filtered)
+  return filtered
+}
+
+/**
+ * The closest paint in one brand, or NULL when that brand contributes nothing to search.
+ *
+ * It used to throw for an empty brand, which was right while the only way to get one was
+ * a broken catalogue. With an owned set, "AK is enabled but I own no AK paints" is an
+ * ordinary state a user reaches by ticking one box, so it has to be a result rather than
+ * an error.
+ */
+export function nearestPaintOfBrand(
+  target: Oklab,
+  brand: Brand,
+  owned: ReadonlySet<string> | null = null,
+): PaintMatch | null {
+  const candidates = candidatesFor(brand, owned)
+  if (candidates.length === 0) return null
   let best = candidates[0]
   let bestDist = oklabDistance(target, best.lab)
   for (let i = 1; i < candidates.length; i++) {
@@ -155,10 +204,13 @@ export function nearestPaintOfBrand(target: Oklab, brand: Brand): PaintMatch {
 export function nearestPerBrand(
   target: Oklab,
   brands: readonly Brand[] = BRANDS,
+  owned: ReadonlySet<string> | null = null,
 ): PaintMatch[] {
-  return BRANDS.filter((b) => brands.includes(b)).map((brand) =>
-    nearestPaintOfBrand(target, brand),
-  )
+  // A brand with nothing to search simply contributes no row, which is why this filters
+  // nulls rather than passing them on.
+  return BRANDS.filter((b) => brands.includes(b))
+    .map((brand) => nearestPaintOfBrand(target, brand, owned))
+    .filter((match): match is PaintMatch => match !== null)
 }
 
 /**
@@ -170,8 +222,9 @@ export function nearestPerBrand(
 export function matchingPaints(
   target: Oklab,
   brands: readonly Brand[] = BRANDS,
+  owned: ReadonlySet<string> | null = null,
 ): PaintMatch[] {
-  return nearestPerBrand(target, brands).filter(isWithinTolerance)
+  return nearestPerBrand(target, brands, owned).filter(isWithinTolerance)
 }
 
 /**
@@ -181,16 +234,17 @@ export function matchingPaints(
 export function closestOverall(
   target: Oklab,
   brands: readonly Brand[] = BRANDS,
+  owned: ReadonlySet<string> | null = null,
 ): PaintMatch | null {
-  const found = nearestPerBrand(target, brands)
+  const found = nearestPerBrand(target, brands, owned)
   return found.length === 0
     ? null
     : found.reduce((a, b) => (b.distance < a.distance ? b : a))
 }
 
-/** How many paints a brand contributes. Shown beside its checkbox. */
-export function paintCount(brand: Brand): number {
-  return BY_BRAND.get(brand)?.length ?? 0
+/** How many paints a brand contributes to the search. Shown beside its checkbox. */
+export function paintCount(brand: Brand, owned: ReadonlySet<string> | null = null): number {
+  return candidatesFor(brand, owned).length
 }
 
 /** The distance as the percentage the UI shows. 100% is an Oklab distance of 1. */

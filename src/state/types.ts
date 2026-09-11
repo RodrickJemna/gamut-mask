@@ -59,6 +59,20 @@ export type AppState = {
    */
   enabledBrands: Brand[]
   /**
+   * The paints on the shelf, as `brand|ref` keys in catalogue order (D57).
+   *
+   * A SECOND filter beside `enabledBrands`, not a replacement: "AK, and only what I own"
+   * is a sensible thing to ask for. Empty means the inventory is not in use and matching
+   * searches whole catalogues — which is different from owning nothing, and is why
+   * `ownedOnly` is a separate flag rather than inferred from the length.
+   *
+   * Kept as a sorted array rather than a Set so D18 still holds: this is the field a
+   * saved file most needs to carry, and a Set does not survive JSON.
+   */
+  owned: string[]
+  /** Whether matching is restricted to `owned` (D57). */
+  ownedOnly: boolean
+  /**
    * Which colour wheel the disk shows (D53).
    *
    * In state, not a view preference: it changes what every colour in the list IS, what
@@ -90,6 +104,14 @@ export type Action =
    */
   | { type: 'dragMask'; deltaDisplay: Point; offsetAtStart: Point }
   | { type: 'toggleBrand'; brand: Brand }
+  /**
+   * Inventory edits. NOT recorded by undo/redo: which pots are on the shelf is a fact
+   * about the shelf, not an edit to the mask, and ticking sixty boxes must not bury the
+   * shape you were working on under sixty steps. See `isTransient` in state/history.ts.
+   */
+  | { type: 'toggleOwned'; key: string }
+  | { type: 'setOwned'; keys: readonly string[] }
+  | { type: 'setOwnedOnly'; only: boolean }
   | { type: 'setWheel'; id: WheelId }
   /**
    * `continuous` marks one frame of a slider drag, as opposed to a single deliberate

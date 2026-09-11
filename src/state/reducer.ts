@@ -9,6 +9,7 @@ import { DEFAULT_WHEEL, angleOf, polar, radiusOf, type Point } from '../color/wh
 import { centroid, clampPolygon, clampToDisk } from '../geom/polygon.ts'
 import { rotate, scale, translate } from '../geom/transform.ts'
 import { buildPreset, type PresetId } from '../mask/presets.ts'
+import { canonicalOwned } from '../paints/inventory.ts'
 import { BRANDS, type Brand } from '../paints/types.ts'
 import type { Action, AppState } from './types.ts'
 
@@ -37,6 +38,8 @@ export const initialState: AppState = {
   basePolygon: buildPreset('triad', 0),
   offset: { x: 0, y: 0 },
   enabledBrands: [DEFAULT_BRAND],
+  owned: [],
+  ownedOnly: false,
   wheel: DEFAULT_WHEEL,
   rotation: 0,
   size: 1,
@@ -258,6 +261,36 @@ export function reducer(state: AppState, action: Action): AppState {
      */
     case 'setWheel':
       return state.wheel === action.id ? state : { ...state, wheel: action.id }
+
+    /**
+     * D57: the inventory. `canonicalOwned` keeps the list de-duplicated, in catalogue
+     * order and free of paints this build does not have, so the encoded form is a pure
+     * function of the SET and the picker's rows never reshuffle as boxes are ticked.
+     */
+    case 'toggleOwned': {
+      const on = state.owned.includes(action.key)
+      const next = canonicalOwned(
+        on ? state.owned.filter((k) => k !== action.key) : [...state.owned, action.key],
+      )
+      return { ...state, owned: next }
+    }
+
+    /** Bulk set, for loading a saved inventory and for the picker's check-all. */
+    case 'setOwned': {
+      const next = canonicalOwned(action.keys)
+      const same =
+        next.length === state.owned.length && next.every((k, i) => k === state.owned[i])
+      return same ? state : { ...state, owned: next }
+    }
+
+    /**
+     * Turning the filter on with an empty shelf would match nothing at all and read as a
+     * broken app, so it is refused: there is nothing to filter to yet.
+     */
+    case 'setOwnedOnly': {
+      const only = action.only && state.owned.length > 0
+      return only === state.ownedOnly ? state : { ...state, ownedOnly: only }
+    }
 
     case 'setRotation': {
       const deg = ((action.deg % 360) + 360) % 360

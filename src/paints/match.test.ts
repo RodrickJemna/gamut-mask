@@ -90,7 +90,8 @@ describe('nearestPaint', () => {
   it('returns a member of the catalogue', () => {
     const refs = new Set(PAINTS.map((p) => p.ref))
     const match = nearestPaintOfBrand(hexToOklab('#3e4c28'), 'AK')
-    expect(refs.has(match.paint.ref)).toBe(true)
+    expect(match).not.toBeNull()
+    expect(refs.has(match!.paint.ref)).toBe(true)
   })
 
   it('matches every catalogue colour to itself at distance ~0', () => {
@@ -98,7 +99,7 @@ describe('nearestPaint', () => {
       const match = nearestPaintOfBrand(hexToOklab(p.hex), p.brand)
       // Ties are possible — 18 paints share a swatch colour with another — so assert the
       // distance rather than the identity.
-      expect(match.distance).toBeLessThan(1e-9)
+      expect(match!.distance).toBeLessThan(1e-9)
     }
   })
 
@@ -116,7 +117,7 @@ describe('nearestPaint', () => {
           oklabDistance(target, hexToOklab(p.hex)),
         ),
       )
-      expect(nearestPaintOfBrand(target, brand).distance).toBeCloseTo(brute, 12)
+      expect(nearestPaintOfBrand(target, brand)!.distance).toBeCloseTo(brute, 12)
     }
   })
 })
@@ -250,7 +251,7 @@ describe('several brands (D44, D51)', () => {
 
   it('matches each brand against its own paints only', () => {
     for (const brand of BRANDS) {
-      expect(nearestPaintOfBrand(wheelSample(300, 0.3), brand).paint.brand).toBe(brand)
+      expect(nearestPaintOfBrand(wheelSample(300, 0.3), brand)!.paint.brand).toBe(brand)
     }
   })
 
@@ -482,5 +483,73 @@ describe('driftLabel (D49)', () => {
     // Chroma is the more common of the two, which is the finding that stopped this being
     // a lightness-only label.
     expect(chroma).toBeGreaterThan(lightness)
+  })
+})
+
+/**
+ * The owned filter (D57). It sits alongside the brand filter rather than replacing it:
+ * "AK, and only what I own" is a sensible request, and so is either half on its own.
+ */
+describe('owned filter (D57)', () => {
+  const keyOf = (p: (typeof PAINTS)[number]) => `${p.brand}|${p.ref}`
+  const ak = PAINTS.filter((p) => p.brand === 'AK')
+  const shelf = new Set([keyOf(ak[10]), keyOf(ak[200]), keyOf(ak[400])])
+
+  it('searches only the owned paints', () => {
+    const target = hexToOklab('#3e4c28')
+    const match = nearestPaintOfBrand(target, 'AK', shelf)
+    expect(match).not.toBeNull()
+    expect(shelf.has(keyOf(match!.paint))).toBe(true)
+  })
+
+  it('is never better than searching everything', () => {
+    for (let theta = 0; theta < 360; theta += 30) {
+      const target = wheelSample(theta, 0.5)
+      const all = nearestPaintOfBrand(target, 'AK')!
+      const mine = nearestPaintOfBrand(target, 'AK', shelf)!
+      expect(mine.distance).toBeGreaterThanOrEqual(all.distance - 1e-12)
+    }
+  })
+
+  it('finds the paint itself when it is on the shelf', () => {
+    for (const key of shelf) {
+      const paint = ak.find((p) => keyOf(p) === key)!
+      const match = nearestPaintOfBrand(hexToOklab(paint.hex), 'AK', shelf)!
+      expect(match.distance).toBeLessThan(1e-9)
+    }
+  })
+
+  /**
+   * "AK is enabled but I own no AK paints" is an ordinary state, reached by ticking one
+   * box. It used to throw, which was fine only while an empty brand meant a broken
+   * catalogue.
+   */
+  it('returns null for a brand with nothing owned, rather than throwing', () => {
+    const empty = new Set<string>()
+    expect(nearestPaintOfBrand(wheelSample(0, 0.5), 'AK', empty)).toBeNull()
+    expect(nearestPerBrand(wheelSample(0, 0.5), BRANDS, empty)).toEqual([])
+    expect(matchingPaints(wheelSample(0, 0.5), BRANDS, empty)).toEqual([])
+    expect(closestOverall(wheelSample(0, 0.5), BRANDS, empty)).toBeNull()
+  })
+
+  it('omits a brand with nothing owned while keeping the others', () => {
+    const onlyAk = new Set([keyOf(ak[10])])
+    const found = nearestPerBrand(wheelSample(120, 0.4), BRANDS, onlyAk)
+    expect(found).toHaveLength(1)
+    expect(found[0].paint.brand).toBe('AK')
+  })
+
+  it('counts what a brand contributes under the filter', () => {
+    expect(paintCount('AK', shelf)).toBe(3)
+    expect(paintCount('Vallejo', shelf)).toBe(0)
+    expect(paintCount('AK')).toBe(ak.length)
+  })
+
+  it('gives the same answer whether or not the index was already warm', () => {
+    const target = wheelSample(200, 0.6)
+    const first = nearestPaintOfBrand(target, 'AK', shelf)!
+    const second = nearestPaintOfBrand(target, 'AK', shelf)!
+    expect(second.paint.ref).toBe(first.paint.ref)
+    expect(second.distance).toBe(first.distance)
   })
 })

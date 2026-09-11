@@ -221,3 +221,34 @@ describe('the wheel in history (D53)', () => {
     expect(h.past).toHaveLength(3)
   })
 })
+
+describe('the inventory stays out of history (D57)', () => {
+  const key = 'AK|AK11029'
+
+  it('records no step for ticking a paint', () => {
+    const h = run([
+      { type: 'toggleOwned', key },
+      { type: 'setOwnedOnly', only: true },
+    ])
+    expect(h.past).toHaveLength(0)
+    expect(canUndo(h)).toBe(false)
+    // ...but the change did take effect.
+    expect(h.present.owned).toEqual([key])
+  })
+
+  /**
+   * The reason: ticking sixty paints must not bury the shape under sixty undo steps, and
+   * cmd-Z after stocking the shelf should still return the mask you were working on.
+   */
+  it('leaves an earlier mask edit as the thing undo returns to', () => {
+    const h = run([
+      { type: 'loadPreset', id: 'rectangle' },
+      { type: 'toggleOwned', key },
+    ])
+    expect(h.past).toHaveLength(1)
+    const back = historyReducer(h, { type: 'undo' })
+    expect(back.present.preset).toBe('triad')
+    // The shelf is not rolled back with it: it was never part of the step.
+    expect(back.present.owned).toEqual([key])
+  })
+})
