@@ -27,19 +27,31 @@
  * generous neutral margin around the wheel is functional, not whitespace taste
  * (section 6, F7): surrounding colour shifts the perceived hue of the disk.
  */
-.wheel {
+/*
+ * The wheel's column: the square, then the D10 caveat under it (D53). The caveat moved
+ * here because this column has vertical slack and the controls column has none — see the
+ * note beside it in App.tsx.
+ */
+.wheel-col {
   grid-area: wheel;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  min-height: 0;
+  max-height: 100%;
+  align-self: center;
+}
+
+.wheel {
   position: relative;
   aspect-ratio: 1;
   width: 100%;
-  /* min-height: 0 lets a grid item shrink below its content; without it the square
+  /* min-height: 0 lets a flex item shrink below its content; without it the square
      overflows the row instead of fitting it. */
   min-height: 0;
-  max-height: 100%;
   /* Past this a bigger disk buys nothing for dragging vertices. */
   max-width: 470px;
-  justify-self: center;
-  align-self: center;
 }
 
 /*
@@ -104,6 +116,52 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/*
+ * D53 — the wheel chips. One row of round miniatures; the selected one is ringed in the
+ * focus white rather than tinted, because the panel has no accent colour to spend
+ * (section 6) and the chips themselves are the only saturated thing in it.
+ */
+.wheel-chips {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.wheel-chip {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  /* Zero line-height, or the inline canvas adds descender space and the row grows. */
+  line-height: 0;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.wheel-chip canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.wheel-chip:hover {
+  border-color: var(--border-strong);
+}
+
+/* Ring, not a fill: the swatch has to stay readable through the selected state. */
+.wheel-chip[aria-checked='true'] {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 1px var(--focus);
+}
+
+.wheel-name {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 /* Heading and the undo/redo pair on one line — see the note in MaskPanel (D49). */

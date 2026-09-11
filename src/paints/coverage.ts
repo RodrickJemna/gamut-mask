@@ -20,10 +20,16 @@
  * PER BRAND, combined on read. A colour is unreachable only if EVERY enabled brand misses
  * it, so combining is a per-cell minimum and adding a catalogue costs one more field
  * rather than a rebuild of all 2^n brand combinations.
+ *
+ * PER WHEEL TOO, since D53: the field answers "can a paint reach this point of the disk",
+ * and the disk is a different surface on each wheel. Caches are therefore keyed by
+ * (wheel, brand) — a build is 34 ms for the whole catalogue, so a variant costs nothing
+ * until it is actually looked at. This is also the reason the muted wheel has a nearly
+ * empty scrim and the saturated one does not.
  */
 
 import type { Oklab } from '../color/oklab.ts'
-import { sample } from '../color/wheel.ts'
+import { WHEELS, sample, type WheelId, type WheelSpec, wheelById } from '../color/wheel.ts'
 import { MATCH_TOLERANCE_PERCENT, hexToOklab, oklabDistance } from './match.ts'
 import { PAINTS, type Brand } from './catalogue.ts'
 
@@ -48,7 +54,7 @@ for (const paint of PAINTS) {
   else LABS_BY_BRAND.set(paint.brand, [hexToOklab(paint.hex)])
 }
 
-const FIELDS = new Map<Brand, Float32Array>()
+const FIELDS = new Map<string, Float32Array>()
 
 /**
  * Nearest-paint distance for every cell of one brand's grid, memoised.
@@ -57,15 +63,16 @@ const FIELDS = new Map<Brand, Float32Array>()
  * interpolation needs, and a field of clamped values would draw a boundary in the wrong
  * place.
  */
-export function brandField(brand: Brand): Float32Array {
-  const cached = FIELDS.get(brand)
+export function brandField(brand: Brand, wheel: WheelSpec = WHEELS[0]): Float32Array {
+  const key = `${wheel.id}|${brand}`
+  const cached = FIELDS.get(key)
   if (cached) return cached
 
   const labs = LABS_BY_BRAND.get(brand) ?? []
   const field = new Float32Array(FIELD_THETA * FIELD_T)
   for (let i = 0; i < FIELD_THETA; i++) {
     for (let j = 0; j < FIELD_T; j++) {
-      const target = sample((i * 360) / FIELD_THETA, j / (FIELD_T - 1))
+      const target = sample((i * 360) / FIELD_THETA, j / (FIELD_T - 1), wheel)
       let best = Infinity
       for (const lab of labs) {
         const d = oklabDistance(target, lab)
@@ -74,7 +81,7 @@ export function brandField(brand: Brand): Float32Array {
       field[i * FIELD_T + j] = best
     }
   }
-  FIELDS.set(brand, field)
+  FIELDS.set(key, field)
   return field
 }
 
@@ -87,13 +94,17 @@ const COMBINED = new Map<string, Float32Array>()
  * so shading the whole disk would assert something false — the same distinction D48 draws
  * between "found nothing" and "did not look".
  */
-export function combinedField(brands: readonly Brand[]): Float32Array | null {
+export function combinedField(
+  brands: readonly Brand[],
+  wheelId: WheelId = WHEELS[0].id,
+): Float32Array | null {
   if (brands.length === 0) return null
-  const key = [...brands].sort().join('|')
+  const wheel = wheelById(wheelId)
+  const key = `${wheel.id}|${[...brands].sort().join('|')}`
   const cached = COMBINED.get(key)
   if (cached) return cached
 
-  const fields = brands.map(brandField)
+  const fields = brands.map((brand) => brandField(brand, wheel))
   const out = Float32Array.from(fields[0])
   for (let f = 1; f < fields.length; f++) {
     const other = fields[f]

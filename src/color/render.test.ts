@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { renderDisk } from './render.ts'
+import { WHEELS } from './wheel.ts'
 
 /**
  * Geometry only, not appearance — this locks the D21 orientation, which is the easiest
@@ -44,28 +45,28 @@ function dominant(p: [number, number, number, number]): string {
 
 describe('renderDisk', () => {
   it('is square and sized by size * dpr', () => {
-    const img = renderDisk(50, 2)
+    const img = renderDisk(50, 2, WHEELS[0])
     expect(img.width).toBe(100)
     expect(img.height).toBe(100)
     expect(img.data).toHaveLength(100 * 100 * 4)
   })
 
   it('leaves the corners outside the disk transparent', () => {
-    const img = renderDisk(SIDE, 1)
+    const img = renderDisk(SIDE, 1, WHEELS[0])
     for (const [x, y] of [[0, 0], [SIDE - 1, 0], [0, SIDE - 1], [SIDE - 1, SIDE - 1]]) {
       expect(pixel(img, x, y)[3]).toBe(0)
     }
   })
 
   it('is opaque at the centre and along the cardinal radii', () => {
-    const img = renderDisk(SIDE, 1)
+    const img = renderDisk(SIDE, 1, WHEELS[0])
     expect(pixel(img, mid, mid)[3]).toBe(255)
     expect(pixel(img, mid, 1)[3]).toBe(255)
     expect(pixel(img, mid, SIDE - 2)[3]).toBe(255)
   })
 
   it('has a neutral centre — equal channels (D35: Oklab L = 0.6)', () => {
-    const img = renderDisk(SIDE, 1)
+    const img = renderDisk(SIDE, 1, WHEELS[0])
     const [r, g, b] = pixel(img, mid, mid)
     expect(r).toBe(g)
     expect(g).toBe(b)
@@ -75,20 +76,20 @@ describe('renderDisk', () => {
    * D21: red up, clockwise. In wheel space y grows down, so "up" is the low row index.
    */
   it('puts red at the top and cyan at the bottom (D21)', () => {
-    const img = renderDisk(SIDE, 1)
+    const img = renderDisk(SIDE, 1, WHEELS[0])
     expect(dominant(pixel(img, mid, 1))).toBe('R')
     expect(dominant(pixel(img, mid, SIDE - 2))).toBe('GB')
   })
 
   it('runs clockwise: yellow-green at 3 o clock, violet at 9 o clock (D21)', () => {
-    const img = renderDisk(SIDE, 1)
+    const img = renderDisk(SIDE, 1, WHEELS[0])
     // 90 deg is between Y (60) and G (120); 270 deg is between B (240) and M (300).
     expect(dominant(pixel(img, SIDE - 2, mid))).toBe('G')
     expect(dominant(pixel(img, 1, mid))).toBe('B')
   })
 
   it('is not mirrored: the top-right octant is warmer than the top-left', () => {
-    const img = renderDisk(SIDE, 1)
+    const img = renderDisk(SIDE, 1, WHEELS[0])
     const off = Math.round(mid * 0.6)
     const right = pixel(img, mid + off, mid - off)
     const left = pixel(img, mid - off, mid - off)
@@ -99,7 +100,7 @@ describe('renderDisk', () => {
   })
 
   it('feathers the rim rather than cutting it hard', () => {
-    const img = renderDisk(201, 1)
+    const img = renderDisk(201, 1, WHEELS[0])
     const alphas = new Set<number>()
     for (let x = 0; x < img.width; x++) {
       for (let y = 0; y < img.height; y++) {
@@ -108,5 +109,46 @@ describe('renderDisk', () => {
       }
     }
     expect(alphas.size).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * The wheel argument is required (D53), because a default here renders a disk that
+ * silently contradicts the colour list — which is exactly what happened to the JPEG
+ * export while it still had one.
+ */
+describe('renderDisk honours the wheel', () => {
+  it('draws a different disk for every wheel', () => {
+    const images = WHEELS.map((wheel) => renderDisk(48, 1, wheel))
+    for (let i = 0; i < images.length; i++) {
+      for (let j = i + 1; j < images.length; j++) {
+        let differing = 0
+        for (let k = 0; k < images[i].data.length; k += 4) {
+          if (images[i].data[k + 3] === 0) continue
+          if (
+            images[i].data[k] !== images[j].data[k] ||
+            images[i].data[k + 1] !== images[j].data[k + 1] ||
+            images[i].data[k + 2] !== images[j].data[k + 2]
+          ) {
+            differing++
+          }
+        }
+        // Not "some pixel differs": nearly the whole disk should, since the wheels differ
+        // at every radius except the exact centre.
+        expect(differing).toBeGreaterThan(1000)
+      }
+    }
+  })
+
+  it('keeps the same disk geometry on every wheel', () => {
+    // Only the colours change: the rim, the feathered edge and the transparent surround
+    // must land on identical pixels, or the mask overlay would stop registering with it.
+    const reference = renderDisk(48, 1, WHEELS[0])
+    for (const wheel of WHEELS.slice(1)) {
+      const other = renderDisk(48, 1, wheel)
+      for (let k = 3; k < reference.data.length; k += 4) {
+        expect(other.data[k]).toBe(reference.data[k])
+      }
+    }
   })
 })

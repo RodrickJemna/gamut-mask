@@ -18,6 +18,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { renderDisk } from '../color/render.ts'
+import type { WheelSpec } from '../color/wheel.ts'
 import { renderUnreachable } from '../paints/coverage.ts'
 
 /**
@@ -28,6 +29,8 @@ import { renderUnreachable } from '../paints/coverage.ts'
 const SETTLE_MS = 120
 
 type Props = {
+  /** Which wheel to draw (D53). Changing it repaints the disk and nothing else. */
+  wheel: WheelSpec
   /**
    * D50 — the reachability field to shade from, or null to draw no scrim at all.
    *
@@ -39,7 +42,7 @@ type Props = {
   unreachable: Float32Array | null
 }
 
-export function WheelCanvas({ unreachable }: Props) {
+export function WheelCanvas({ wheel, unreachable }: Props) {
   const boxRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const scrimRef = useRef<HTMLCanvasElement>(null)
@@ -84,8 +87,8 @@ export function WheelCanvas({ unreachable }: Props) {
     if (!canvas || side <= 0) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    ctx.putImageData(renderDisk(size, dpr), 0, 0)
-  }, [size, dpr, side])
+    ctx.putImageData(renderDisk(size, dpr, wheel), 0, 0)
+  }, [size, dpr, side, wheel])
 
   /** D50 — the scrim, repainted only when the field or the pixel size changes. */
   useEffect(() => {

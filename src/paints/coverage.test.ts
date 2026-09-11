@@ -120,7 +120,9 @@ describe('combinedField', () => {
   it('is the per-cell minimum of the brands it combines', () => {
     // Over every brand, not a hardcoded pair — this test named AK and Vallejo and so
     // silently stopped covering the combination the moment a third catalogue arrived.
-    const fields = BRANDS.map(brandField)
+    // Arrow, not a bare reference: `map` passes the index as the second argument, which
+    // brandField now reads as a wheel (D53).
+    const fields = BRANDS.map((brand) => brandField(brand))
     const all = combinedField(BRANDS)
     expect(all).not.toBeNull()
     if (!all) return

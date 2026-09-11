@@ -55,7 +55,7 @@ export function buildSheetJpeg(input: SheetContent & { polygon: Point[] }): Uint
   // encoded from rather than by decoding its JPEG bytes — decoding an Image is
   // asynchronous, and this way the two exports cannot disagree about what the mask
   // looked like.
-  surface.sheetImage = renderWheelImage(input.polygon).canvas
+  surface.sheetImage = renderWheelImage(input.polygon, input.wheel).canvas
 
   layoutSheet(surface, input, { footerTop: Number.POSITIVE_INFINITY })
 

@@ -31,6 +31,7 @@ import {
   radiusOf,
   sample as wheelSample,
   type Point,
+  type WheelSpec,
 } from '../color/wheel.ts'
 import { centroid, type Polygon } from './polygon.ts'
 
@@ -74,7 +75,7 @@ const MIN_SEPARATION = 0.05
  */
 const NEUTRAL_RADIUS = 1e-9
 
-function toSample(p: Point): Sample {
+function toSample(p: Point, wheel?: WheelSpec): Sample {
   const radius = radiusOf(p.x, p.y)
   const neutral = radius < NEUTRAL_RADIUS
   // Snapped to the origin and to angle 0, so a neutral is one fixed, reproducible entry.
@@ -82,7 +83,7 @@ function toSample(p: Point): Sample {
   const y = neutral ? 0 : p.y
   const theta = neutral ? 0 : angleOf(p.x, p.y)
   const t = neutral ? 0 : Math.min(1, radius)
-  const lab = wheelSample(theta, t)
+  const lab = wheelSample(theta, t, wheel)
   return { x, y, theta, t, rgb8: oklabToSrgb8(lab), oklab: lab }
 }
 
@@ -121,13 +122,13 @@ function candidates(poly: Polygon): Point[] {
  * wheel's colour at a point is well defined regardless of which side of the outline it
  * falls on.
  */
-export function sampleMask(poly: Polygon): Sample[] {
+export function sampleMask(poly: Polygon, wheel?: WheelSpec): Sample[] {
   if (poly.length < 3) return []
 
   const kept: Sample[] = []
   for (const point of candidates(poly)) {
     if (radiusOf(point.x, point.y) > 1 + 1e-9) continue
-    const candidate = toSample(point)
+    const candidate = toSample(point, wheel)
     const tooClose = kept.some(
       (k) => oklabDistance(k.oklab, candidate.oklab) < MIN_SEPARATION,
     )

@@ -196,3 +196,28 @@ describe('history', () => {
     expect(JSON.parse(JSON.stringify(h))).toEqual(h)
   })
 })
+
+describe('the wheel in history (D53)', () => {
+  it('is one undoable step, and undo restores the previous wheel', () => {
+    const h = run([
+      { type: 'setWheel', id: 'muted' },
+      { type: 'setWheel', id: 'shadow' },
+    ])
+    expect(h.present.wheel).toBe('shadow')
+    expect(h.past).toHaveLength(2)
+    const back = historyReducer(h, { type: 'undo' })
+    expect(back.present.wheel).toBe('muted')
+    expect(historyReducer(back, { type: 'undo' }).present.wheel).toBe('saturated')
+  })
+
+  it('does not merge into a slider sweep beside it', () => {
+    // Picking a wheel is deliberate, never a drag frame, so it must never be absorbed
+    // into a neighbouring gesture the way one setRotation absorbs the next.
+    const h = run([
+      { type: 'setRotation', deg: 30, continuous: true },
+      { type: 'setWheel', id: 'pastel' },
+      { type: 'setRotation', deg: 60, continuous: true },
+    ])
+    expect(h.past).toHaveLength(3)
+  })
+})

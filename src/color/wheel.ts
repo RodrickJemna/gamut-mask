@@ -152,15 +152,127 @@ export function rimOklab(theta: number): Oklab {
  * dips by up to 2.3e-4 (0.08%) — about a fifth of an 8-bit step, so invisible, but not
  * zero. See the bounded guard in wheel.test.ts.
  */
-export function sample(theta: number, t: number): Oklab {
-  const rim = rimOklab(theta)
+export function sample(
+  theta: number,
+  t: number,
+  wheel: WheelSpec = WHEELS[0],
+): Oklab {
+  const rim = wheel.rim(theta)
+  const centre = wheel.centre
   return reduceChroma({
-    L: CENTRE_OKLAB.L * (1 - t) + rim.L * t,
-    a: CENTRE_OKLAB.a * (1 - t) + rim.a * t,
-    b: CENTRE_OKLAB.b * (1 - t) + rim.b * t,
+    L: centre.L * (1 - t) + rim.L * t,
+    a: centre.a * (1 - t) + rim.a * t,
+    b: centre.b * (1 - t) + rim.b * t,
   })
 }
 
-export function sampleSrgb8(theta: number, t: number): [number, number, number] {
-  return oklabToSrgb8(sample(theta, t))
+export function sampleSrgb8(
+  theta: number,
+  t: number,
+  wheel: WheelSpec = WHEELS[0],
+): [number, number, number] {
+  return oklabToSrgb8(sample(theta, t, wheel))
+}
+
+/**
+ * WHEEL VARIANTS. Spec: D53.
+ *
+ * A wheel is nothing but a CENTRE and a RIM: `sample` above lerps between them in Oklab
+ * and reduces chroma to fit. So a variant is a swap of two values, and everything
+ * downstream — the polygon, the sampler, the matcher, the exports — is indifferent to
+ * which one is in use.
+ *
+ * All of these keep the ANGLE convention above, which is why they are cheap: the six
+ * anchors stay at 60 degrees, so the R Y G C B M letters, the colour list's wedge
+ * headings and the Snap 60 step remain correct, and a mask drawn on one wheel means the
+ * same thing on another. A wheel with a different angular geometry — an RYB artists'
+ * wheel, or perceptually spaced hues — would move the anchors and is a different job.
+ *
+ * NO LIGHTNESS AXIS IS BACK (D16). Each variant is still exactly one colour per
+ * (angle, radius); picking a wheel picks a surface, it does not add a dimension, and
+ * there is no ramp, no ladder and nothing to scrub through.
+ */
+export type WheelSpec = {
+  id: WheelId
+  /** Shown beside the WHEEL heading (D26: English, no i18n layer). */
+  label: string
+  /** One-line description, used as the chip's tooltip. */
+  hint: string
+  centre: Oklab
+  rim: (theta: number) => Oklab
+}
+
+export type WheelId = 'saturated' | 'pastel' | 'muted' | 'shadow'
+
+const WHITE: Oklab = { L: 1, a: 0, b: 0 }
+const BLACK: Oklab = { L: 0, a: 0, b: 0 }
+
+const mix = (a: Oklab, b: Oklab, t: number): Oklab => ({
+  L: a.L * (1 - t) + b.L * t,
+  a: a.a * (1 - t) + b.a * t,
+  b: a.b * (1 - t) + b.b * t,
+})
+
+/**
+ * The four wheels, saturated first so it stays the default everywhere.
+ *
+ * The constants were chosen by MEASURING paint reachability — the share of the disk's
+ * area where some catalogued paint lands within the D40 tolerance, the same quantity
+ * D50's scrim shades:
+ *
+ *   saturated  60.1%    muted   97.4%
+ *   pastel     72.6%    shadow  95.3%
+ *
+ * Two findings worth keeping, because they are not what you would guess:
+ *
+ * MUTED IS THE PRACTICAL ONE. At 97.4% almost every colour on it can be bought, against
+ * 60% for the wheel this tool shipped with, and it spends its whole area in the range
+ * where hobby paints actually live.
+ *
+ * PASTEL IS THE WEAKEST of the three, not the mildest. Only 114 of the catalogued paints
+ * sit above L 0.85 and the median is 0.53, so a wheel that is pale AND bright is largely
+ * colours that cannot be matched. Reachability is driven by CHROMA rather than lightness
+ * — mixing MORE white toward the rim improves it (0.25 -> 62.8%, 0.55 -> 78.7%) while
+ * raising the centre's lightness makes it worse (L 0.70 -> 78.7%, L 0.90 -> 72.7%) —
+ * which is why this one is pale at low chroma instead of pale and vivid.
+ *
+ * Like `--mask-wash-opacity` and the preset radii, these are named constants because they
+ * are tuning surface: measured, but not yet judged on a colour-managed display.
+ */
+export const WHEELS: readonly WheelSpec[] = [
+  {
+    id: 'saturated',
+    label: 'Saturated',
+    hint: 'Full sRGB saturation at the rim — the widest gamut, and the hardest to buy',
+    centre: CENTRE_OKLAB,
+    rim: (theta) => rimOklab(theta),
+  },
+  {
+    id: 'pastel',
+    label: 'Pastel',
+    hint: 'Tints: a near-white centre and a rim mixed toward white',
+    centre: { L: 0.9, a: 0, b: 0 },
+    rim: (theta) => mix(rimOklab(theta), WHITE, 0.55),
+  },
+  {
+    id: 'muted',
+    label: 'Muted',
+    hint: 'Tones: the rim pulled toward the neutral — almost every colour has a paint',
+    centre: CENTRE_OKLAB,
+    rim: (theta) => mix(rimOklab(theta), CENTRE_OKLAB, 0.45),
+  },
+  {
+    id: 'shadow',
+    label: 'Shadow',
+    hint: 'Shades: a dark centre and a rim mixed toward black',
+    centre: { L: 0.32, a: 0, b: 0 },
+    rim: (theta) => mix(rimOklab(theta), BLACK, 0.45),
+  },
+]
+
+export const DEFAULT_WHEEL: WheelId = 'saturated'
+
+/** The spec for an id, falling back to the default rather than throwing. */
+export function wheelById(id: WheelId): WheelSpec {
+  return WHEELS.find((w) => w.id === id) ?? WHEELS[0]
 }

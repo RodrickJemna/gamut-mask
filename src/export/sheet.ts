@@ -12,7 +12,7 @@
  */
 
 import { lightnessLabel, saturationLabel, toHex } from '../color/format.ts'
-import { ANCHORS, wedgeIndexOf, wedgeOffsetOf } from '../color/wheel.ts'
+import { ANCHORS, type WheelSpec, wedgeIndexOf, wedgeOffsetOf } from '../color/wheel.ts'
 import type { Sample } from '../geom/sample.ts'
 import {
   closestOverall,
@@ -58,6 +58,11 @@ export type SheetContent = {
   brands: readonly Brand[]
   polygon: { x: number; y: number }[]
   preset: string | null
+  /**
+   * The wheel the colours were read from (D53). The SPEC, not its label: the sheet both
+   * prints the name and renders the disk, and carrying two fields would let them drift.
+   */
+  wheel: WheelSpec
   rotation: number
   size: number
 }
@@ -98,7 +103,7 @@ export function layoutSheet(
   input: SheetContent,
   options: LayoutOptions,
 ): number {
-  const { samples, polygon, preset, rotation, size, brands } = input
+  const { samples, polygon, preset, wheel, rotation, size, brands } = input
   let c = surface
   let y = 0
 
@@ -144,6 +149,9 @@ export function layoutSheet(
   c.text(infoX, infoY, 'MASK', { size: 8, bold: true, hex: MUTED })
   infoY += 16
   const rows: [string, string][] = [
+    // The wheel comes first: it says what the colours below ARE, so a sheet read weeks
+    // later cannot be mistaken for one planned on a different surface (D53).
+    ['Wheel', wheel.label],
     ['Preset', preset ? preset : 'Hand-drawn'],
     ['Rotation', `${Math.round(rotation)}°`],
     ['Size', `${Math.round(size * 100)}%`],

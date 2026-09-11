@@ -8,15 +8,15 @@
  * element, the resize observation and the putImageData call.
  */
 
-import { angleOf, sampleSrgb8 } from './wheel.ts'
+import { angleOf, sampleSrgb8, type WheelSpec } from './wheel.ts'
 
 /**
  * Renders the disk at `size` CSS pixels with a `dpr` backing store, so the result is
  * `round(size * dpr)` square. Outside the disk is transparent.
  *
  * F1: the caller caches this and recomputes only on resize. The result depends on
- * nothing but the pixel dimensions — not the mask, not any other state — which is what
- * makes that cache correct.
+ * nothing but the pixel dimensions and the chosen wheel (D53) — not the mask, not any
+ * other state — which is what makes that cache correct.
  *
  * Measured cost (M-series, dev build): 0.25M px ~40 ms, 1M px ~140 ms, 3.24M px ~475 ms.
  * That is fine for a resize-only recompute but is a visible hitch if it runs on every
@@ -25,7 +25,7 @@ import { angleOf, sampleSrgb8 } from './wheel.ts'
  * theta — rimOklab is the only per-pixel work that does not depend on the radius — with
  * nodes landing on the six anchors so the hexagon's kinks stay exact.
  */
-export function renderDisk(size: number, dpr: number): ImageData {
+export function renderDisk(size: number, dpr: number, wheel: WheelSpec): ImageData {
   const side = Math.max(1, Math.round(size * dpr))
   const half = side / 2
   const data = new Uint8ClampedArray(side * side * 4)
@@ -51,7 +51,7 @@ export function renderDisk(size: number, dpr: number): ImageData {
       // At the exact centre angleOf is arbitrary (atan2(0,0) === 0), which is harmless:
       // t = 0 is the same neutral for every angle. No special case, so the centre pixel
       // cannot end up a different colour from its neighbours.
-      const [r, g, b] = sampleSrgb8(angleOf(x, y), t < 1 ? t : 1)
+      const [r, g, b] = sampleSrgb8(angleOf(x, y), t < 1 ? t : 1, wheel)
       data[i] = r
       data[i + 1] = g
       data[i + 2] = b

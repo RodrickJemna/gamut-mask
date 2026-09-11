@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { oklabToSrgb8, type Oklab } from './oklab.ts'
+import { oklabDistance, oklabToSrgb8, type Oklab } from './oklab.ts'
 import {
   ANCHORS,
   CENTRE_OKLAB,
@@ -13,6 +13,9 @@ import {
   sample,
   sampleSrgb8,
   snapToAnchorAngle,
+  WHEELS,
+  DEFAULT_WHEEL,
+  wheelById,
   wedgeIndexOf,
   wedgeOffsetOf,
 } from './wheel.ts'
@@ -282,6 +285,115 @@ describe('snapToAnchorAngle', () => {
   it('is idempotent', () => {
     for (let deg = 0; deg < 360; deg += 7) {
       expect(snapToAnchorAngle(snapToAnchorAngle(deg))).toBe(snapToAnchorAngle(deg))
+    }
+  })
+})
+
+/**
+ * Wheel variants (D53). The property that matters is that a variant is still a WHEEL:
+ * one colour per (angle, radius), in gamut, neutral at the centre, and continuous. If any
+ * of those breaks, the mask, the sampler and the paint matcher all inherit the damage.
+ */
+describe('wheel variants', () => {
+  it('starts on the saturated wheel, which stays the default', () => {
+    expect(WHEELS[0].id).toBe('saturated')
+    expect(DEFAULT_WHEEL).toBe('saturated')
+    // The default parameter of `sample` must agree with the id the state starts on.
+    for (let theta = 0; theta < 360; theta += 17) {
+      for (const t of [0, 0.4, 1]) {
+        expect(sample(theta, t)).toEqual(sample(theta, t, wheelById(DEFAULT_WHEEL)))
+      }
+    }
+  })
+
+  it('has unique ids and a label and hint for each', () => {
+    expect(new Set(WHEELS.map((w) => w.id)).size).toBe(WHEELS.length)
+    for (const wheel of WHEELS) {
+      expect(wheel.label.length).toBeGreaterThan(0)
+      expect(wheel.hint.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('falls back to the default for an unknown id rather than throwing', () => {
+    // A saved file from a later version could name a wheel this build does not have.
+    expect(wheelById('nonsense' as never)).toBe(WHEELS[0])
+  })
+
+  it('is neutral at the centre on every wheel', () => {
+    // t = 0 is the centre for all angles; a wheel whose centre had chroma would make the
+    // sampler's neutral snap (geom/sample.ts) a lie.
+    for (const wheel of WHEELS) {
+      for (let theta = 0; theta < 360; theta += 23) {
+        const centre = sample(theta, 0, wheel)
+        expect(centre.a).toBeCloseTo(0, 12)
+        expect(centre.b).toBeCloseTo(0, 12)
+        expect(centre.L).toBeCloseTo(wheel.centre.L, 12)
+      }
+    }
+  })
+
+  it('stays inside sRGB everywhere on every wheel', () => {
+    for (const wheel of WHEELS) {
+      for (let theta = 0; theta < 360; theta += 7) {
+        for (let i = 0; i <= 20; i++) {
+          const [r, g, b] = sampleSrgb8(theta, i / 20, wheel)
+          for (const c of [r, g, b]) {
+            expect(Number.isInteger(c)).toBe(true)
+            expect(c).toBeGreaterThanOrEqual(0)
+            expect(c).toBeLessThanOrEqual(255)
+          }
+        }
+      }
+    }
+  })
+
+  it('is continuous around the 0/360 seam on every wheel', () => {
+    for (const wheel of WHEELS) {
+      for (const t of [0.3, 0.7, 1]) {
+        const before = sample(359.9, t, wheel)
+        const after = sample(0.1, t, wheel)
+        expect(oklabDistance(before, after)).toBeLessThan(0.01)
+      }
+    }
+  })
+
+  it('keeps every variant lower in chroma than the saturated one', () => {
+    // This is the whole point of the group: the variants are subsets of the same hue
+    // circle, reached by pulling the rim inward or toward white or black.
+    const chroma = (c: { a: number; b: number }) => Math.hypot(c.a, c.b)
+    for (const wheel of WHEELS.slice(1)) {
+      for (let theta = 0; theta < 360; theta += 11) {
+        expect(chroma(sample(theta, 1, wheel))).toBeLessThan(
+          chroma(sample(theta, 1, WHEELS[0])) + 1e-9,
+        )
+      }
+    }
+  })
+
+  it('separates the variants, so no two are the same wheel', () => {
+    for (let i = 0; i < WHEELS.length; i++) {
+      for (let j = i + 1; j < WHEELS.length; j++) {
+        let worst = 0
+        for (let theta = 0; theta < 360; theta += 13) {
+          worst = Math.max(
+            worst,
+            oklabDistance(sample(theta, 1, WHEELS[i]), sample(theta, 1, WHEELS[j])),
+          )
+        }
+        expect(worst).toBeGreaterThan(0.05)
+      }
+    }
+  })
+
+  it('orders the variants by lightness the way their names claim', () => {
+    // Pastel above the saturated centre, shadow below it — a "shadow" wheel that came
+    // out lighter than the default would be a naming bug, not a taste question.
+    const pastel = wheelById('pastel')
+    const shadow = wheelById('shadow')
+    expect(pastel.centre.L).toBeGreaterThan(WHEELS[0].centre.L)
+    expect(shadow.centre.L).toBeLessThan(WHEELS[0].centre.L)
+    for (let theta = 0; theta < 360; theta += 29) {
+      expect(sample(theta, 1, pastel).L).toBeGreaterThan(sample(theta, 1, shadow).L)
     }
   })
 })

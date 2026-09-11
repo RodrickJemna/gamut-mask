@@ -5,7 +5,7 @@
  * re-render or re-sample.
  */
 
-import { angleOf, polar, radiusOf, type Point } from '../color/wheel.ts'
+import { DEFAULT_WHEEL, angleOf, polar, radiusOf, type Point } from '../color/wheel.ts'
 import { centroid, clampPolygon, clampToDisk } from '../geom/polygon.ts'
 import { rotate, scale, translate } from '../geom/transform.ts'
 import { buildPreset, type PresetId } from '../mask/presets.ts'
@@ -23,6 +23,7 @@ export const initialState: AppState = {
   basePolygon: buildPreset('triad', 0),
   offset: { x: 0, y: 0 },
   enabledBrands: [...BRANDS],
+  wheel: DEFAULT_WHEEL,
   rotation: 0,
   size: 1,
   preset: DEFAULT_PRESET,
@@ -215,6 +216,15 @@ export function reducer(state: AppState, action: Action): AppState {
       )
       return { ...state, enabledBrands: next }
     }
+
+    /**
+     * D53: swap the wheel. Deliberately does NOT touch the mask, the rotation or the
+     * size — the variants share the angle convention, so the shape you drew still means
+     * the same hues and the same saturations on the new surface. Resetting it, the way
+     * `loadPreset` does, would throw away work for no reason.
+     */
+    case 'setWheel':
+      return state.wheel === action.id ? state : { ...state, wheel: action.id }
 
     case 'setRotation': {
       const deg = ((action.deg % 360) + 360) % 360

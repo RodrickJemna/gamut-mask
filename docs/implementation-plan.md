@@ -233,6 +233,16 @@ All three questions that were open during the build are settled, in spec version
   It is strongly hue-dependent: red stays reachable to the rim, while blue and magenta
   give out at about t = 0.48 and green at t = 0.60. That is precisely why D50 draws the
   region rather than only counting it — the shape cannot be guessed from a number.
+- **The wheel variants' constants await a calibrated eye** (D53). The centre lightnesses
+  and rim mixes were chosen by measuring paint reachability, not by looking: muted 97.4%,
+  shadow 95.3%, pastel 72.6%, against 60.1% for the original. The measurement says which
+  wheels are *practical*; it says nothing about whether the pastel wheel is pale enough or
+  the shadow wheel dark enough to paint from, and both are one constant each to retune.
+- **The pastel wheel puts a near-white disk inside mid-grey chrome.** The greys were
+  picked so the disk's perceived hue is not shifted by its surround, with the saturated
+  wheel in mind. A very light disk is a different simultaneous-contrast situation, and the
+  chrome cannot suit both. Inherent to the feature rather than a defect, but it is the
+  reason to judge pastel on a calibrated display before trusting it.
 - **Constants awaiting a calibrated eye.** `--mask-wash-opacity` (0.58), `SHADE_ALPHA`
   (80, in `paints/coverage.ts`) and the preset radii in `mask/presets.ts` were set by eye
   in a browser, not on a colour-managed display. They are named constants for exactly this

@@ -12,7 +12,7 @@ import {
   reducer,
   toBasePoint,
 } from './reducer.ts'
-import type { AppState } from './types.ts'
+import type { Action, AppState } from './types.ts'
 
 /**
  * Not a UI test — no React, no DOM. What is under test is the display/base coordinate
@@ -509,5 +509,41 @@ describe('drag flag', () => {
     expect(reducer(dragging, { type: 'beginDrag', index: 1 })).toBe(dragging)
     expect(reducer(dragging, { type: 'endDrag' }).dragging).toBeNull()
     expect(reducer(initialState, { type: 'endDrag' })).toBe(initialState)
+  })
+})
+
+describe('setWheel (D53)', () => {
+  it('switches the wheel', () => {
+    const next = reducer(initialState, { type: 'setWheel', id: 'muted' })
+    expect(next.wheel).toBe('muted')
+  })
+
+  it('leaves the mask, rotation and size exactly alone', () => {
+    // The variants share the angle convention, so the shape means the same thing on the
+    // new surface. Resetting it — the way loadPreset does — would discard work.
+    const posed: AppState = (
+      [
+        { type: 'setRotation', deg: 137 },
+        { type: 'setSize', factor: 0.6 },
+        { type: 'moveVertex', index: 0, to: { x: 0.3, y: -0.2 } },
+      ] as Action[]
+    ).reduce(reducer, initialState)
+
+    const switched = reducer(posed, { type: 'setWheel', id: 'shadow' })
+    expect(switched.basePolygon).toEqual(posed.basePolygon)
+    expect(switched.offset).toEqual(posed.offset)
+    expect(switched.rotation).toBe(posed.rotation)
+    expect(switched.size).toBe(posed.size)
+    expect(switched.preset).toBe(posed.preset)
+  })
+
+  it('is a no-op when the wheel is already selected', () => {
+    const state = reducer(initialState, { type: 'setWheel', id: 'pastel' })
+    expect(reducer(state, { type: 'setWheel', id: 'pastel' })).toBe(state)
+  })
+
+  it('stays JSON-serialisable, so a saved file can carry the wheel (D18)', () => {
+    const state = reducer(initialState, { type: 'setWheel', id: 'muted' })
+    expect(JSON.parse(JSON.stringify(state))).toEqual(state)
   })
 })

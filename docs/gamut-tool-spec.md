@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.28
+Verzió: 0.29
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -149,6 +149,51 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D53 — Váltható színkörök (négy változat, azonos geometria).** A kör eddig egy volt;
+  most négy, és a választó a panel tetején van.
+  - **Egy kör = egy KÖZÉP és egy PEREM.** A `sample` Oklabban interpolál a kettő között,
+    majd chromát redukál — tehát egy változat két érték cseréje, és minden, ami lejjebb
+    van (polygon, mintavevő, illesztő, exportok), érzéketlen arra, melyik van használatban.
+  - **A négy változat**: `saturated` (a régi), `pastel` (tintek), `muted` (tónusok),
+    `shadow` (árnyékok).
+  - **Mind megtartja a SZÖGKONVENCIÓT**, és ez az, ami olcsóvá teszi: a hat anchor 60°-on
+    marad, tehát az R Y G C B M betűk, a színlista ék-fejlécei és a Snap 60° lépés
+    továbbra is helyesek — és **egy maskot átvihetsz** a körök között, mert ugyanazt
+    jelenti mindegyiken. A `setWheel` ezért **nem nyúl** a maskhoz, a rotációhoz és a
+    mérethez. Egy másik szögbeosztású kör (RYB, vagy perceptuálisan osztott hue-k)
+    elmozdítaná az anchorokat, és külön munka.
+  - **Nem tér vissza a value-tengely (D16)**: minden változat továbbra is pontosan egy
+    szín (szög, rádiusz)-onként. A kör kiválasztása egy *felületet* választ, nem ad
+    dimenziót; nincs ramp, nincs létra, nincs mit végigscrubolni.
+  - **A konstansok mérésből jönnek**, festék-elérhetőség szerint (ugyanaz a mennyiség,
+    amit a D50 fátyla árnyékol): `saturated` 60.1%, `pastel` 72.6%, `muted` **97.4%**,
+    `shadow` 95.3%. Élőben, a triádon: a muted **9/9** mintát illeszt, a pastel 5/7, a
+    régi kör 11/13.
+    - **A muted a praktikus.** Majdnem minden színe megvásárolható, és a D50 fátyla
+      csaknem üres rajta.
+    - **A pastel a leggyengébb** a háromból, nem a legszelídebb: a katalogizált festékek
+      közül csak 114 van L 0.85 felett, a mediánjuk 0.53. Az elérhetőséget a **chroma**
+      hajtja, nem a világosság — *több* fehér a perem felé javítja (0.25 → 62.8%,
+      0.55 → 78.7%), a közép világosítása rontja (L 0.70 → 78.7%, L 0.90 → 72.7%).
+  - **A minták száma csökkenhet**: a D47 0.05-os szeparációja a kisebb chromájú körökön
+    több jelöltet olvaszt össze (triád: 13 → 9 → 7). Ez helyes — a szeparáció *pont* a
+    festék-illesztés toleranciája —, de azt jelenti, hogy egy pasztell körön kevesebb
+    **megkülönböztethető** szín van, nem azt, hogy elveszett valami.
+  - **Az állapotban él** (`wheel: WheelId`), nem nézeti beállításként: megváltoztatja,
+    *mi* minden szín a listában, mire illeszt a matcher és mit mond mindkét export —
+    tehát pont az, amit egy mentett fájlnak hordoznia kell (D18). A visszavonásban egy
+    lépés.
+  - **A D50 mezői körönként cache-elődnek** (`wheel|brand`), mert a kérdés az, hogy
+    „elér-e ide festék", és a korong más felület minden körön.
+  - **A kép-előállító függvényekben a kör KÖTELEZŐ paraméter.** Volt default értéke, és a
+    `jpeg.ts` azonnal el is felejtette átadni: a szaturált korongot rajzolta egy olyan
+    lapra, aminek a színei másik körről jöttek, és semmi nem jelezte. Az olyan default,
+    ami csendben hibás lehet, rosszabb, mint egy argumentum.
+  - **A D10-es caveat a kör alá költözött.** A kontrollpanel alján az volt, ami lelökődik
+    1280×720-on, valahányszor bármi nő fölötte — és háromszor meg is történt (D50,
+    negyedik gyártó, most a kör-chipek). A kör négyzet egy magasabb kolumnában, tehát ott
+    van **146 px** szabad hely, a panelen nulla. Odaillik is jobban: a caveat arról szól,
+    mit jelent a **korong**.
 - **D52 — Negyedik gyártó: Citadel (Games Workshop).** 105 szín, `src/paints/citadel.ts`,
   a „Citadel Painting System" plakátból. A `BRANDS` bővítése ismét elég volt; a sor
   magassága (`ENTRY_H`) magától nőtt négy sorra.
@@ -670,3 +715,7 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   egyetlen márka, ahol a `ref` maga a név. A tizenkét GW shade-et a lapossági küszöb
   dobta ki, névlista nélkül. Mellékesen: a caveat szövege rövidebb, mert négy
   jelölőnégyzet két sorba tördelődik és megint lelökte volna 1280×720-on.
+- 0.29 — **váltható színkörök (D53)**: saturated / pastel / muted / shadow, chip-sorral a
+  panel tetején. Egy kör = egy közép + egy perem; a szögkonvenció közös, tehát a mask
+  átvihető és az anchorok maradnak. A muted 97.4%-os festék-elérhetőséggel a praktikus
+  változat a régi 60.1% ellenében. A D10-es caveat a kör alá került, ahol van hely.

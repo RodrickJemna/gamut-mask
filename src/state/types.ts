@@ -9,7 +9,7 @@
  * D14: useReducer, no zustand. The state is small enough.
  */
 
-import type { Point } from '../color/wheel.ts'
+import type { Point, WheelId } from '../color/wheel.ts'
 import type { PresetId } from '../mask/presets.ts'
 import type { Brand } from '../paints/types.ts'
 
@@ -58,6 +58,16 @@ export type AppState = {
    * distinct from "searched and found nothing".
    */
   enabledBrands: Brand[]
+  /**
+   * Which colour wheel the disk shows (D53).
+   *
+   * In state, not a view preference: it changes what every colour in the list IS, what
+   * the paint matcher is matching, and what both exports say — so it is exactly the kind
+   * of thing a saved file must carry (D18). It does NOT touch the mask: all the variants
+   * share the angle convention, so the polygon means the same thing on each and switching
+   * repaints the disk underneath it and nothing else.
+   */
+  wheel: WheelId
   /** Which preset produced basePolygon; null once hand-edited. Drives button state only. */
   preset: PresetId | null
   /**
@@ -80,6 +90,7 @@ export type Action =
    */
   | { type: 'dragMask'; deltaDisplay: Point; offsetAtStart: Point }
   | { type: 'toggleBrand'; brand: Brand }
+  | { type: 'setWheel'; id: WheelId }
   /**
    * `continuous` marks one frame of a slider drag, as opposed to a single deliberate
    * value. Undo/redo needs the distinction: a sweep must collapse into one step, while a

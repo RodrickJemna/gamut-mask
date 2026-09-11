@@ -11,7 +11,7 @@
  */
 
 import { useState } from 'react'
-import { WEDGE_SPAN, snapToAnchorAngle } from '../color/wheel.ts'
+import { WEDGE_SPAN, snapToAnchorAngle, wheelById } from '../color/wheel.ts'
 import { PRESETS } from '../mask/presets.ts'
 import { paintCount } from '../paints/match.ts'
 import { BRANDS, BRAND_TAG } from '../paints/types.ts'
@@ -19,6 +19,7 @@ import type { HistoryAction } from '../state/history.ts'
 import { MAX_SIZE, MIN_SIZE } from '../state/reducer.ts'
 import type { AppState } from '../state/types.ts'
 import { NumberField } from './NumberField.tsx'
+import { WheelChips } from './WheelChips.tsx'
 
 type Props = {
   state: AppState
@@ -82,6 +83,23 @@ export function MaskPanel({
   }
   return (
     <aside className="panel">
+      {/*
+        D53 — the wheel goes FIRST, above the mask: it decides what every colour in the
+        list is, so it reads as the thing the rest of the panel operates within. The
+        active wheel's name shares the heading line, which is where this panel puts a
+        label that would otherwise cost a row of its own.
+      */}
+      <section>
+        <div className="panel-head">
+          <h2>Wheel</h2>
+          <span className="wheel-name">{wheelById(state.wheel).label}</span>
+        </div>
+        <WheelChips
+          active={state.wheel}
+          onSelect={(id) => dispatch({ type: 'setWheel', id })}
+        />
+      </section>
+
       <section>
         {/*
           D49 — undo/redo shares the heading's line rather than taking a row of its own.

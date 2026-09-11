@@ -63,6 +63,12 @@ The Oklab ↔ linear sRGB conversion is our own ~30 lines, using Ottosson's orig
 matrices. It exists only to interpolate the centre-to-rim transition. It is not a
 general colour library and should not grow into one.
 
+`WHEELS` in `src/color/wheel.ts` is the list of colour wheels (D53). A wheel is a centre
+and a rim, nothing more, and everything downstream takes it as an argument — so adding a
+variant in that group is one entry. Where a function renders an IMAGE the wheel is a
+required parameter, never defaulted: a default there renders a disk that silently
+contradicts the colour list, which is a bug this project has already shipped once.
+
 ## Working style
 
 - Terse. No preamble, no restating the question, no filler enthusiasm.

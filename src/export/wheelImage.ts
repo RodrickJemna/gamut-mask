@@ -14,7 +14,7 @@
  */
 
 import { renderDisk } from '../color/render.ts'
-import { ANCHORS, dir, polar, type Point } from '../color/wheel.ts'
+import { ANCHORS, dir, polar, type Point, type WheelSpec } from '../color/wheel.ts'
 
 /** Matches VIEW_MARGIN in MaskOverlay — room outside the disk for the anchor letters. */
 const VIEW_MARGIN = 1.2
@@ -47,7 +47,17 @@ function base64ToBytes(base64: string): Uint8Array {
  * `side` is the pixel size of the square image. The disk occupies the middle
  * `1 / VIEW_MARGIN` of it, leaving the same margin the on-screen overlay uses.
  */
-export function renderWheelImage(polygon: Point[], side = 1100): WheelImage {
+/**
+ * `wheel` is REQUIRED, deliberately. It had a default, and jpeg.ts promptly forgot to
+ * pass it — which rendered the saturated disk onto a sheet whose colours came from
+ * another wheel, with nothing to notice. A default that can be silently wrong is worse
+ * than an argument.
+ */
+export function renderWheelImage(
+  polygon: Point[],
+  wheel: WheelSpec,
+  side = 1100,
+): WheelImage {
   const canvas = document.createElement('canvas')
   canvas.width = side
   canvas.height = side
@@ -68,7 +78,7 @@ export function renderWheelImage(polygon: Point[], side = 1100): WheelImage {
   disk.height = diskSide
   const diskCtx = disk.getContext('2d')
   if (!diskCtx) throw new Error('2D canvas context unavailable')
-  diskCtx.putImageData(renderDisk(diskSide, 1), 0, 0)
+  diskCtx.putImageData(renderDisk(diskSide, 1, wheel), 0, 0)
   ctx.drawImage(disk, inset, inset)
 
   const unit = diskSide / 2

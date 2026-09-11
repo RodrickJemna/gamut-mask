@@ -12,6 +12,7 @@ import { MaskPanel } from './components/MaskPanel.tsx'
 import { SampleList } from './components/SampleList.tsx'
 import { WheelCanvas } from './components/WheelCanvas.tsx'
 import { toHex } from './color/format.ts'
+import { wheelById } from './color/wheel.ts'
 import { downloadFile } from './export/download.ts'
 import { sheetFileName } from './export/name.ts'
 import { PRESETS } from './mask/presets.ts'
@@ -99,19 +100,21 @@ export default function App() {
   const [showUnreachable, setShowUnreachable] = useState(false)
 
   const { basePolygon, offset, rotation, size, enabledBrands } = state
+  /** D53 — the chosen wheel, resolved once and passed down rather than looked up twice. */
+  const wheel = useMemo(() => wheelById(state.wheel), [state.wheel])
   const polygon = useMemo(
     () => displayPolygon({ basePolygon, offset, rotation, size }),
     [basePolygon, offset, rotation, size],
   )
-  const samples = useMemo(() => sampleMask(polygon), [polygon])
+  const samples = useMemo(() => sampleMask(polygon, wheel), [polygon, wheel])
 
   /**
    * Memoised so the scrim's effect sees a stable identity; `combinedField` caches the
    * heavy work itself, so this is only about not repainting for free.
    */
   const unreachable = useMemo(
-    () => (showUnreachable ? combinedField(enabledBrands) : null),
-    [showUnreachable, enabledBrands],
+    () => (showUnreachable ? combinedField(enabledBrands, state.wheel) : null),
+    [showUnreachable, enabledBrands, state.wheel],
   )
 
   const sheetContent = useMemo(
@@ -120,10 +123,11 @@ export default function App() {
       polygon,
       brands: enabledBrands,
       preset: PRESETS.find((p) => p.id === state.preset)?.label ?? null,
+      wheel,
       rotation,
       size,
     }),
-    [samples, polygon, enabledBrands, state.preset, rotation, size],
+    [samples, polygon, enabledBrands, state.preset, wheel, rotation, size],
   )
 
   /**
@@ -134,12 +138,12 @@ export default function App() {
   const saveSheet = useCallback((): string => {
     const fileName = sheetFileName(samples.map((s) => toHex(s.rgb8)), 'pdf')
     downloadFile(
-      buildSheet({ ...sheetContent, image: renderWheelImage(polygon) }),
+      buildSheet({ ...sheetContent, image: renderWheelImage(polygon, wheel) }),
       fileName,
       'application/pdf',
     )
     return fileName
-  }, [samples, polygon, sheetContent])
+  }, [samples, polygon, wheel, sheetContent])
 
   const saveJpeg = useCallback((): string => {
     const fileName = sheetFileName(samples.map((s) => toHex(s.rgb8)), 'jpg')
@@ -152,15 +156,34 @@ export default function App() {
 
   return (
     <main className="app">
-      <div className="wheel">
-        <WheelCanvas unreachable={unreachable} />
-        <MaskOverlay
-          polygon={polygon}
-          offset={offset}
-          highlight={highlightedPoint}
-          canDelete={basePolygon.length > MIN_VERTICES}
-          dispatch={dispatch}
-        />
+      <div className="wheel-col">
+        <div className="wheel">
+          <WheelCanvas wheel={wheel} unreachable={unreachable} />
+          <MaskOverlay
+            polygon={polygon}
+            offset={offset}
+            highlight={highlightedPoint}
+            canDelete={basePolygon.length > MIN_VERTICES}
+            dispatch={dispatch}
+          />
+        </div>
+        {/*
+          D10 requires the sRGB assumption to be stated in the UI, and since D53 it lives
+          HERE, under the wheel.
+
+          It used to sit at the bottom of the controls column, which made it whatever fell
+          off a 1280x720 screen when anything above it grew — and it did, three times: at
+          D50, when a fourth brand made the brand filter wrap, and again when the wheel
+          chips took a row. Each time the fix was to shave pixels off something else,
+          which is not a fix. The wheel is a square in a taller column, so this column has
+          real vertical slack — about 227 px at 1280x720 — while the panel has none. It
+          also reads better here: the caveat is about what the DISK means, not about the
+          export buttons it used to sit under.
+        */}
+        <p className="caveat">
+          Assumes sRGB: on an uncalibrated monitor this plans relative harmony, not
+          absolute paint colour. Matches use printed catalogue swatches.
+        </p>
       </div>
       <div className="side">
         <MaskPanel
@@ -173,20 +196,6 @@ export default function App() {
           onSaveSheet={saveSheet}
           onSaveJpeg={saveJpeg}
         />
-        {/*
-          D10 requires the sRGB assumption to be stated in the UI. It lives here rather
-          than above the colour list so it stays visible without competing for the room
-          the list needs.
-
-          KEEP IT SHORT. This is the bottom of the column, so it is what falls off a
-          1280x720 screen when anything above it grows — which has now happened twice, at
-          D50 and again when a fourth brand made the filter wrap to two rows. The claim
-          D10 actually requires is the sRGB assumption; the rest is trimmed to fit.
-        */}
-        <p className="caveat">
-          Assumes sRGB: on an uncalibrated monitor this plans relative harmony, not
-          absolute paint colour. Matches use printed catalogue swatches.
-        </p>
       </div>
       <SampleList
         samples={samples}
