@@ -6,10 +6,12 @@
  * than as three swatches of equal size. Reading the bar left to right is reading the
  * model from its largest area to its smallest, which is the order you paint in.
  *
- * The BIAS figure is shown, not hidden: how far off the neutral the area-weighted palette
- * lands, 0% being balanced. A narrow gamut cannot get near zero — every colour in an
- * analogous mask pulls the same way — and the number is the only honest way to say so.
- * This panel shows L, S and paint deltas for the same reason.
+ * The IMBALANCE figure is shown, not hidden: how far the palette is from Munsell-balanced
+ * at these areas, 0% being exact. Its two halves are in the tooltip, because they fail in
+ * different ways and the distinction is actionable — a high direction residual means the
+ * hues do not oppose, a high magnitude one means a colour barely stronger than its
+ * neighbour has been handed three times the area. A narrow gamut cannot get near zero, and
+ * the number is the only honest way to say so.
  *
  * Hovering a segment rings that colour on the wheel, reusing D46 rather than inventing a
  * second highlight: the schemes are drawn from the same samples as the list, so the same
@@ -21,7 +23,7 @@ import { toHex } from '../color/format.ts'
 import type { Sample } from '../geom/sample.ts'
 import { matchingPaints } from '../paints/match.ts'
 import { BRAND_TAG, type Brand } from '../paints/types.ts'
-import { buildSchemes, type Scheme } from '../palette/scheme.ts'
+import { buildSchemes, strength, type Scheme } from '../palette/scheme.ts'
 
 type Props = {
   samples: Sample[]
@@ -71,9 +73,8 @@ export function SchemeStrip({ samples, brands, onHighlight, highlighted }: Props
       <div className="schemes-head">
         <h2>60&ndash;30&ndash;10</h2>
         <span className="schemes-note">
-          Areas balance inversely to lightness &times; chroma and the hues oppose, so the
-          weighted palette sits on the neutral (Munsell). Dominant most muted, accent
-          strongest.
+          Balanced when the three areas &times; lightness &times; chroma are equal and
+          their hues cancel (Munsell). Dominant most muted, accent strongest.
         </span>
       </div>
 
@@ -132,9 +133,20 @@ function SchemeBar({
               onPointerLeave={() => onHighlight(null)}
               onFocus={() => onHighlight(index)}
               onBlur={() => onHighlight(null)}
-              title={`${ROLE_NAMES[i]} — ${Math.round(role.share * 100)}% — ${hex}\n${
-                paintsFor.get(role.sample) ?? ''
-              }`}
+              /*
+                The strength is spelled out because the list's own S column is the wheel's
+                PER-HUE-NORMALISED radius, while the roles are ranked on absolute chroma.
+                Two colours can read "S 41%" and differ by a quarter in chroma — blue's rim
+                reaches 0.313 where red's reaches 0.258 — so without this the ordering
+                looks arbitrary exactly when someone checks it.
+              */
+              title={
+                `${ROLE_NAMES[i]} — ${Math.round(role.share * 100)}% — ${hex}\n`
+                + `strength ${strength(role.sample).toFixed(3)}`
+                + ` (L ${role.sample.oklab.L.toFixed(2)}`
+                + ` x chroma ${Math.hypot(role.sample.oklab.a, role.sample.oklab.b).toFixed(3)})\n`
+                + `${paintsFor.get(role.sample) ?? ''}`
+              }
               aria-label={`${ROLE_NAMES[i]}, ${Math.round(role.share * 100)} percent, ${hex}`}
             />
           )
@@ -155,9 +167,14 @@ function SchemeBar({
         ))}
         <span
           className="scheme-balance"
-          title="How far off the neutral this palette sits: the area-weighted sum of lightness x chroma, as a share of its own total. 0% balances on middle grey; a narrow gamut cannot get near it, because all of its colours pull the same way."
+          title={
+            'How far from Munsell-balanced at these areas. 0% needs the weighted '
+            + 'lightness x chroma of the three to be equal AND to cancel.\n'
+            + `hues not opposing: ${Math.round(scheme.direction * 100)}%\n`
+            + `strengths not in 1:2:6: ${Math.round(scheme.magnitude * 100)}%`
+          }
         >
-          bias {Math.round(scheme.bias * 100)}%
+          off {Math.round(scheme.imbalance * 100)}%
         </span>
       </div>
     </div>

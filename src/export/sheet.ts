@@ -202,8 +202,8 @@ export function layoutSheet(
   c.text(
     MARGIN + 56,
     y,
-    'Areas balance inversely to lightness x chroma and the hues oppose, so the weighted '
-      + 'palette sits on the neutral (Munsell). Bias is how far off it lands.',
+    'Balanced when the three areas x lightness x chroma are equal and their hues cancel '
+      + '(Munsell). "Off" is how far from that, split into the two ways it can fail.',
     { size: 7, hex: DIM },
   )
   y += 6
@@ -234,8 +234,14 @@ export function layoutSheet(
     }
     c.strokeRect(MARGIN, barTop, SCHEME_BAR_W, 11, RULE, 0.4)
 
-    const bias = `bias ${Math.round(scheme.bias * 100)}%`
-    c.text(MARGIN + SCHEME_BAR_W + 12, y, bias, { size: 8, hex: DIM })
+    const off = `off ${Math.round(scheme.imbalance * 100)}%`
+    c.text(MARGIN + SCHEME_BAR_W + 12, y, off, { size: 8, hex: DIM })
+    c.text(
+      MARGIN + SCHEME_BAR_W + 12 + c.measure(off, 8) + 8,
+      y,
+      `(hue ${Math.round(scheme.direction * 100)}%, strength ${Math.round(scheme.magnitude * 100)}%)`,
+      { size: 7, hex: DIM },
+    )
 
     y += 14
     for (const role of scheme.roles) {

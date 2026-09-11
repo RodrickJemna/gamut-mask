@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.35
+Verzió: 0.36
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -219,11 +219,30 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
       semlegesre esik**. Ez az egy feltétel mindkét felét tartalmazza a szabálynak: két
       színnél `w1·m1 = −w2·m2` egyszerre írja elő a területek fordított arányát **és** a
       hue-k szembenállását. Szigorúan hűbb, mint a nagyság-teszt, amit leváltott.
-    - **A kiírt szám a `bias`**: `|Σ w·m| / Σ |w·m|`, 0% = a semlegesen egyensúlyoz,
-      100% = minden egy irányba húz. A totállal normálva iránymérték, tehát egy telített és
-      egy tompa palettát összehasonlíthatóvá tesz.
-    - Mérve, a választott sémák: a régi pontozással **60–98%** bias, az újjal a körön
-      átnyúló maskoknál **3–9%**.
+    - **MINDKÉT FÉL KELL** (0.36-ban javítva). Három területre a tökéletes egyensúly egy
+      geometriai állítás: a súlyozott momentumok `w_i · m_i` **egyenlő hosszúak ÉS nulla
+      összegűek** — egyenlő oldalú háromszöget zárnak. Az egyenlő hossz a fordított
+      terület-szabály (1 : 2 : 6 erősség a 0.6 : 0.3 : 0.1 területekhez), a nulla összeg a
+      „középszürkén egyensúlyoz". Két színnél az irány-feltétel magában kikényszeríti a
+      nagyságot is, **háromnál viszont nem**: az irányoknak elég szabadsága van kioltani
+      egymást úgy is, hogy a területek rosszak az erősségekhez. Így került be egy séma,
+      ahol az akcentus **7%-kal** volt erősebb a másodlagosnál, és mégis a terület
+      harmadát kapta — olyan akcentus, ami nem akcentus. (A szerző szúrta ki: a listában
+      mindkettő „S 41%"-ot írt.)
+    - **Két reziduum, tuning-konstans nélkül**: `direction = |Σ w·m| / Σ |w·m|` és
+      `magnitude = (max−min)/(max+min)` a kromatikus tagok súlyozott hosszain. A kiírt szám
+      a kettő hipotenúzája √2-vel normálva (`off %`), a két fél a tooltipben — mert
+      **másképp hibásak**, és a különbség tettre fogható: nagy `direction` = a hue-k nem
+      állnak szemben, nagy `magnitude` = egy alig erősebb szín kapott háromszoros
+      területet.
+    - Mérve: a csak nagyságot néző pontozás 60–98% irány-hibát adott; a csak irányt néző
+      56%-os nagyság-hibát; a kettő együtt a legrosszabb nagyság-hibát **21%**-ra hozta, és
+      a preseteken az akcentus **~3×** erősebb a másodlagosnál, ami épp a 0.3/0.1 arány.
+    - **Az `S` oszlop nem ez.** A lista `S`-e a kör **hue-nként normalizált** rádiusza
+      (D20/D35), a szerepsorrend viszont absztolút chromán áll. Két szín olvashat „S 41%"-ot
+      és negyeddel eltérő chromájú lehet — a kék peremének chromája 0.313, a vörösének
+      0.258 —, ezért a szakasz tooltipje kiírja az erősséget `L × chroma` felbontásban:
+      nélküle a sorrend épp akkor tűnik önkényesnek, amikor valaki ellenőrzi.
   - **Három különböző hue-család, ahol a mask engedi.** Egy kiegyensúlyozott paletta is
     duplázhat — két sárga, amelyek együtt kiegyenlítenek egy magentát, pontosan
     egyensúlyos, és mégis négy szeletet hagy ki —, ami tévedésnek olvasódik, akkor is, ha
@@ -864,3 +883,8 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   korábbi, csak nagyságot néző pontozás három ciánt is választott (60–98% bias); az új a
   körön átnyúló maskoknál 3–9%-ot ad, és ahol lehet, három különböző hue-családot használ.
   A kiírt szám `bias` (0% = egyensúlyos), a `balance` arány helyett.
+- 0.36 — **a 60-30-10 mindkét Munsell-felét pontozza (D54 javítása)**: a súlyozott
+  momentumok egyenlő hosszúak ÉS nulla összegűek. Az irány-feltétel háromnál nem
+  kényszeríti ki a nagyságot, így bejött egy séma, ahol az akcentus 7%-kal volt erősebb a
+  másodlagosnál. Két reziduum, hipotenúzaként összevonva (`off %`), a két fél a tooltipben.
+  A szakasz tooltipje az erősséget is kiírja, mert a lista `S`-e hue-nként normalizált.

@@ -92,7 +92,7 @@ describe('60-30-10 schemes', () => {
       return at(0.5, scale * Math.cos(rad), scale * Math.sin(rad), degrees, 0)
     }
     const opposed = [spoke(k / 2, 0), spoke(k, 120), spoke(3 * k, 240)]
-    expect(buildSchemes(opposed, 1)[0].bias).toBeCloseTo(0, 6)
+    expect(buildSchemes(opposed, 1)[0].imbalance).toBeCloseTo(0, 6)
 
     // Identical magnitudes, but all three pointing the same way: nothing cancels.
     const sameWay = [
@@ -100,7 +100,13 @@ describe('60-30-10 schemes', () => {
       at(0.5, 2 * k, 0, 0.2, 0),
       at(0.5, 6 * k, 0, 0.3, 0),
     ]
-    expect(buildSchemes(sameWay, 1)[0].bias).toBeCloseTo(1, 6)
+    // All one way: the directions do not cancel at all. The magnitudes DO sit in the
+    // 1:2:6 the areas want, so only the direction half is at fault — which is the
+    // distinction the two residuals exist to make.
+    const worst = buildSchemes(sameWay, 1)[0]
+    expect(worst.direction).toBeCloseTo(1, 6)
+    expect(worst.magnitude).toBeCloseTo(0, 6)
+    expect(worst.imbalance).toBeCloseTo(1 / Math.SQRT2, 6)
   })
 
   it('is scale-free, so a vivid palette is not penalised for being vivid', () => {
@@ -109,8 +115,8 @@ describe('60-30-10 schemes', () => {
       at(0.5, 2 * k, 0, 0.2, 0),
       at(0.5, -4 * k, 0, 0.3, 0),
     ]
-    expect(buildSchemes(trio(0.02), 1)[0].bias).toBeCloseTo(
-      buildSchemes(trio(0.08), 1)[0].bias,
+    expect(buildSchemes(trio(0.02), 1)[0].imbalance).toBeCloseTo(
+      buildSchemes(trio(0.08), 1)[0].imbalance,
       9,
     )
   })
@@ -124,7 +130,7 @@ describe('60-30-10 schemes', () => {
     ]
     const [scheme] = buildSchemes(trio, 1)
     // 0.3 * (0.5*0.06) against 0.1 * (0.5*0.18), opposed: exactly cancelling.
-    expect(scheme.bias).toBeCloseTo(0, 6)
+    expect(scheme.imbalance).toBeCloseTo(0, 6)
     expect(scheme.roles[0].sample.oklab.a).toBe(0)
   })
 
@@ -133,12 +139,12 @@ describe('60-30-10 schemes', () => {
     expect(buildSchemes([at(0.3, 0, 0, 0, 0), at(0.6, 0, 0, 1, 0), at(0.9, 0, 0, 2, 0)])).toEqual([])
   })
 
-  it('returns schemes least-biased first', () => {
+  it('returns schemes least-imbalanced first', () => {
     for (const preset of ['triad', 'split', 'analogous', 'atmospheric'] as const) {
       const samples = sampleMask(buildPreset(preset, 0), WHEELS[0])
       const found = buildSchemes(samples, 3)
       for (let i = 1; i < found.length; i++) {
-        expect(found[i].bias).toBeGreaterThanOrEqual(found[i - 1].bias)
+        expect(found[i].imbalance).toBeGreaterThanOrEqual(found[i - 1].imbalance)
       }
     }
   })
@@ -157,8 +163,10 @@ describe('60-30-10 schemes', () => {
       const samples = sampleMask(buildPreset(preset, 0), WHEELS[0])
       const found = buildSchemes(samples, 3)
       expect(found.length).toBe(3)
-      expect(found[0].bias, `${preset} best scheme at bias ${found[0].bias.toFixed(2)}`)
-        .toBeLessThan(0.12)
+      expect(
+        found[0].imbalance,
+        `${preset} best scheme at ${found[0].imbalance.toFixed(2)}`,
+      ).toBeLessThan(0.2)
     }
   })
 
@@ -187,7 +195,8 @@ describe('60-30-10 schemes', () => {
   it('reports a narrow gamut as unbalanced rather than pretending', () => {
     const samples = sampleMask(buildPreset('analogous', 0), WHEELS[0])
     for (const scheme of buildSchemes(samples, 3)) {
-      expect(scheme.bias).toBeGreaterThan(0.8)
+      // The hues cannot cancel, whatever the magnitudes do.
+      expect(scheme.direction).toBeGreaterThan(0.8)
     }
   })
 
@@ -240,5 +249,61 @@ describe('60-30-10 schemes', () => {
     const a = buildSchemes(samples, 3)
     const b = buildSchemes(samples, 3)
     expect(JSON.stringify(a)).toBe(JSON.stringify(b))
+  })
+})
+
+/**
+ * The magnitude residual, added after a scheme turned up whose accent was 7% stronger
+ * than its secondary and was still handed a third of the area. Direction alone cannot see
+ * that: with three colours the hues have enough freedom to cancel while the areas are
+ * wrong for the strengths.
+ */
+describe('the magnitude half of the rule', () => {
+  const spoke = (strengthWanted: number, degrees: number, id: number) => {
+    const rad = (degrees * Math.PI) / 180
+    const k = strengthWanted / 0.5
+    return at(0.5, k * Math.cos(rad), k * Math.sin(rad), id, 0)
+  }
+
+  it('is zero when the strengths sit in the 1 : 2 : 6 the areas call for', () => {
+    // Weighted moments then have equal length: 0.6*1 = 0.3*2 = 0.1*6.
+    const trio = [spoke(0.02, 0, 1), spoke(0.04, 120, 2), spoke(0.12, 240, 3)]
+    const [scheme] = buildSchemes(trio, 1)
+    expect(scheme.magnitude).toBeCloseTo(0, 6)
+    expect(scheme.direction).toBeCloseTo(0, 6)
+  })
+
+  it('catches an accent no stronger than the secondary', () => {
+    // Two near-equal colours given 30% and 10%: the hues can still be arranged to
+    // cancel, so only the magnitude term objects.
+    const trio = [spoke(0.02, 0, 1), spoke(0.065, 130, 2), spoke(0.07, 245, 3)]
+    const [scheme] = buildSchemes(trio, 1)
+    expect(scheme.magnitude).toBeGreaterThan(0.4)
+    expect(scheme.imbalance).toBeGreaterThan(scheme.direction)
+  })
+
+  it('ignores the neutral, which has no moment to compare', () => {
+    const trio = [
+      at(0.6, 0, 0, 0, 0),
+      spoke(0.03, 0, 2),
+      spoke(0.09, 180, 3),
+    ]
+    const [scheme] = buildSchemes(trio, 1)
+    expect(scheme.magnitude).toBeCloseTo(0, 6)
+  })
+
+  /** Real masks: the chosen accent must be meaningfully stronger than the secondary. */
+  it('keeps the accent clearly the strongest on the presets', () => {
+    for (const preset of ['triad', 'split', 'rectangle'] as const) {
+      const samples = sampleMask(buildPreset(preset, 0), WHEELS[0])
+      const [best] = buildSchemes(samples, 3)
+      const strengths = best.roles.map((r) => strength(r.sample))
+      // Compared against the secondary, not the dominant, since a neutral dominant has
+      // no strength at all.
+      expect(
+        strengths[2] / strengths[1],
+        `${preset} accent only ${((strengths[2] / strengths[1] - 1) * 100).toFixed(0)}% stronger`,
+      ).toBeGreaterThan(1.5)
+    }
   })
 })

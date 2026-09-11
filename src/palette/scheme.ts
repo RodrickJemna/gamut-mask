@@ -30,12 +30,24 @@
  * larger field of the grayest blue-green". Red against BLUE-GREEN.
  *
  * So a colour's power is treated as a VECTOR — value times chroma, pointing along its hue,
- * which in Oklab is simply `L * (a, b)` — and a palette balances when the area-weighted
- * sum of those vectors lands on the neutral. That single condition contains both halves of
- * the rule: for two colours, `w1*m1 = -w2*m2` forces the areas to be inversely
- * proportional to strength AND the hues to oppose. It is strictly more faithful than the
- * magnitude test it replaces, and measured over the presets it moved the chosen schemes
- * from 0.60-0.98 off-neutral down to 0.03-0.14.
+ * which in Oklab is simply `L * (a, b)`.
+ *
+ * PERFECT BALANCE FOR THREE AREAS is then a single geometric statement: the weighted
+ * moments `w_i * m_i` are equal in length AND sum to zero — they close an equilateral
+ * triangle. Equal lengths is Munsell's inverse-area rule (strengths 1 : 2 : 6 against
+ * areas 0.6 : 0.3 : 0.1); summing to zero is his "balances on middle grey". Both are
+ * needed, and an earlier version of this file scored only one of each in turn:
+ *
+ *   - magnitudes only: nothing about WHERE the colours sit, so three cyans scored as well
+ *     as cyan against red, and the chosen palettes sat 60-98% off the neutral.
+ *   - direction only: for TWO colours cancelling does force the inverse-area rule, but
+ *     with THREE the directions have enough freedom to cancel while the areas are wrong.
+ *     It chose trios whose accent was 7% stronger than the secondary and still handed it
+ *     a third of the area — an accent that is not an accent.
+ *
+ * So both residuals are measured, each dimensionless, and combined without a tuning
+ * constant. Measured on the presets, adding the magnitude term took the worst magnitude
+ * imbalance from 56% down to 21% while costing a few points of direction.
  *
  * WHERE THIS APPROXIMATES. Munsell value and chroma are specific scales; we use Oklab
  * lightness and Oklab chroma instead, because that is what the wheel is built in (D35)
@@ -53,7 +65,7 @@
  *
  * A NARROW GAMUT CANNOT BALANCE, and the score says so instead of pretending. Every colour
  * in an analogous mask points roughly the same way, so no weighting cancels them: its best
- * schemes score 0.94 and up. That is true of the scheme, not a failure of the search — an
+ * schemes score high whatever the magnitudes do. That is true of the scheme, not a failure of the search — an
  * analogous gamut is deliberately one-sided, which is the whole reason to choose one.
  */
 
@@ -95,14 +107,23 @@ export type Scheme = {
   /** Dominant, secondary, accent — in that order, weakest strength first. */
   roles: SchemeRole[]
   /**
-   * How far off the neutral the area-weighted palette lands, from 0 to 1.
-   *
-   * `|sum of w*m| / sum of |w*m|`: zero when the moments cancel exactly, one when they
-   * all pull the same way. Normalising by the total makes it a direction-only measure, so
-   * it is comparable between a vivid palette and a muted one rather than reporting the
-   * vivid one as worse for being vivid.
+   * How far the palette is from Munsell-balanced at these areas, from 0 to 1. The two
+   * residuals below, combined as a plain hypotenuse and normalised so 1 is the worst case
+   * — equal weighting, so there is no constant to tune.
    */
-  bias: number
+  imbalance: number
+  /**
+   * Direction residual: `|sum of w*m| / sum of |w*m|`. Zero when the moments cancel, one
+   * when they all pull the same way. Normalising by the total makes it direction-only, so
+   * a vivid palette is not reported as worse for being vivid.
+   */
+  direction: number
+  /**
+   * Magnitude residual over the chromatic members: how unequal their weighted moments are.
+   * Zero when the strengths sit in the 1 : 2 : 6 the areas call for, which is what stops
+   * a colour barely stronger than its neighbour being handed a third of the area.
+   */
+  magnitude: number
 }
 
 function scoreTrio(trio: Sample[]): Scheme | null {
@@ -118,19 +139,36 @@ function scoreTrio(trio: Sample[]): Scheme | null {
   // With no chromatic accent there is nothing to balance and nothing worth painting.
   if (strength(accent) <= NEUTRAL_STRENGTH) return null
 
-  let sumX = 0
-  let sumY = 0
-  let total = 0
-  ordered.forEach((sample, i) => {
+  const weighted = ordered.map((sample, i) => {
     const m = moment(sample)
-    sumX += SHARES[i] * m.x
-    sumY += SHARES[i] * m.y
-    total += SHARES[i] * Math.hypot(m.x, m.y)
+    return {
+      x: SHARES[i] * m.x,
+      y: SHARES[i] * m.y,
+      length: SHARES[i] * Math.hypot(m.x, m.y),
+      chromatic: strength(sample) > NEUTRAL_STRENGTH,
+    }
   })
+
+  const total = weighted.reduce((sum, v) => sum + v.length, 0)
+  const resultant = Math.hypot(
+    weighted.reduce((sum, v) => sum + v.x, 0),
+    weighted.reduce((sum, v) => sum + v.y, 0),
+  )
+  const direction = total <= NEUTRAL_STRENGTH ? 0 : resultant / total
+
+  // A neutral has no moment to compare, so it is simply not part of this term.
+  const lengths = weighted.filter((v) => v.chromatic).map((v) => v.length)
+  const magnitude =
+    lengths.length < 2
+      ? 0
+      : (Math.max(...lengths) - Math.min(...lengths))
+        / (Math.max(...lengths) + Math.min(...lengths))
 
   return {
     roles: ordered.map((sample, i) => ({ share: SHARES[i], sample })),
-    bias: total <= NEUTRAL_STRENGTH ? 0 : Math.hypot(sumX, sumY) / total,
+    imbalance: Math.hypot(direction, magnitude) / Math.SQRT2,
+    direction,
+    magnitude,
   }
 }
 
@@ -142,7 +180,7 @@ const family = (sample: Sample): number =>
   sample.t === 0 ? -1 : wedgeIndexOf(sample.theta)
 
 /**
- * The best `limit` schemes the mask can offer, least biased first.
+ * The best `limit` schemes the mask can offer, least imbalanced first.
  *
  * DIVERSITY IS RELAXED IN STAGES rather than allowed to starve.
  *
@@ -173,7 +211,7 @@ export function buildSchemes(samples: Sample[], limit = 3): Scheme[] {
       }
     }
   }
-  all.sort((a, b) => a.bias - b.bias)
+  all.sort((a, b) => a.imbalance - b.imbalance)
 
   const key = (s: Scheme, i: number) =>
     `${s.roles[i].sample.x.toFixed(6)},${s.roles[i].sample.y.toFixed(6)}`
@@ -206,5 +244,5 @@ export function buildSchemes(samples: Sample[], limit = 3): Scheme[] {
 
   // Re-sorted after the staged picking, or a scheme admitted by a later, looser stage
   // would sit above a better-balanced one that the first stage had already taken.
-  return chosen.sort((a, b) => a.bias - b.bias)
+  return chosen.sort((a, b) => a.imbalance - b.imbalance)
 }
