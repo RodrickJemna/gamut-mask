@@ -24,6 +24,10 @@ brands as of D52. D11 is in section 5 with the rest of the withdrawn decisions.
 reachability fields (D50) and the sheet's row height derive from, so adding a catalogue is
 that line plus a data module.
 
+The picker is two tiers — brand, then range — and the brand folds shut (D58). The fold
+state lives in `App`, not in the dialog, because the dialog unmounts on close; a search
+always overrides it, since a hit hidden behind a folded header reads as a broken search.
+
 Matching is scoped by TWO independent filters: the enabled brands (D48) and the owned
 paints (D57). Both are threaded as arguments so `match.ts` stays pure. The owned set is
 passed as a `Set` whose IDENTITY is the memo key for the narrowed index, so build it once

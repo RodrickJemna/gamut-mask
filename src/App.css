@@ -909,7 +909,8 @@
 
 .picker-close,
 .picker-tools button,
-.picker-groups h3 button {
+.picker-groups h3 button:not(.picker-fold),
+.picker-groups h4 button {
   padding: 3px 8px;
   color: var(--text-muted);
   font: inherit;
@@ -922,7 +923,8 @@
 
 .picker-close:hover,
 .picker-tools button:hover,
-.picker-groups h3 button:hover {
+.picker-groups h3 button:not(.picker-fold):hover,
+.picker-groups h4 button:hover {
   color: var(--text);
   border-color: var(--border-strong);
 }
@@ -953,19 +955,87 @@
   overflow-y: auto;
 }
 
-.picker-groups h3 {
+.picker-brand,
+.picker-range {
+  display: flex;
+  flex-direction: column;
+}
+
+.picker-brand {
+  gap: 10px;
+}
+
+.picker-range {
+  gap: 2px;
+}
+
+/*
+ * Both header rows stay put while their rows scroll past, stacked: the brand parks at the
+ * top and the range parks directly under it. That is why the height is a fixed variable
+ * rather than left to the text — the range row's offset has to be exactly the brand row's
+ * height, or the two sticky rows overlap.
+ */
+.picker-brand-head,
+.picker-range-head {
   display: flex;
   align-items: center;
   gap: 8px;
   position: sticky;
-  top: 0;
-  z-index: 1;
-  padding: 4px 0;
+  flex: none;
+  height: var(--picker-head-row);
+  margin: 0;
+  font-size: 13px;
   background: var(--surface);
 }
 
-.picker-groups h3 .picker-count {
+.picker-brand-head {
+  top: 0;
+  z-index: 2;
+}
+
+.picker-range-head {
+  top: var(--picker-head-row);
+  z-index: 1;
+  padding-left: 15px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.picker-brand-head .picker-count,
+.picker-range-head .picker-count {
   margin-left: auto;
+}
+
+/* The whole brand name is the hit target, not just the caret — a 7 px triangle is not a
+   button. Borderless, because it reads as the heading it sits in. */
+.picker-fold {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  color: var(--text-muted);
+  font: inherit;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.picker-fold:hover {
+  color: var(--text);
+}
+
+.picker-caret {
+  width: 9px;
+  color: var(--text-dim);
+  font-size: 9px;
+  line-height: 1;
+}
+
+.picker-fold:hover .picker-caret {
+  color: var(--text);
 }
 
 .picker-list {

@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.39
+Verzió: 0.40
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -192,6 +192,34 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
     tégellyel `AK 3 / VJ 0 / PA 0 / CT 0`, nem 647. Az a szám, ami a katalógust írja le,
     miközben a keresés szűkítve van, hazudik. Az exportált lap ugyanezért írja ki, hogy
     „Restricted to N owned paints".
+- **D58 — A polc-dialógus két szintje, és a gyártó összecsukása.**
+  - **Miért**: a dialógus 1540 sora 3536 pixel magas volt egy 720 pixeles képernyőn. Előbb
+    a görgetés hiányzott (lásd lejjebb), de a görgetés csak azt oldja meg, hogy *el lehet*
+    jutni valahová — nem azt, hogy ne kelljen. Négy gyártóból jellemzően egyet-kettőt vesz
+    az ember; az AK egymaga öt range és 647 sor, tehát a nem használt gyártó átgörgetése a
+    munka nagy része.
+  - **A behajtás egysége a GYÁRTÓ, nem a range.** A 27 range közül a Pro Acryl tizenhat
+    hatsoros szett: külön behajtani őket semmit nem takarít meg, a fejlécekbe tett második
+    nyitó-gomb viszont mindegyik sort zsúfoltabbá tenné. A gyártó az a szint, ahol egy
+    klikk 647 sort visz el.
+  - **A keresés MINDIG kinyit.** Egy behajtott fejléc mögé bújtatott találat nem „behajtva"
+    olvasat, hanem elromlott keresés. Amíg van keresőszó, minden nyitva; a behajtások a
+    szó törlésekor jönnek vissza.
+  - **A behajtás állapota az `App`-ban él**, nem a dialógusban: a dialógus bezáráskor
+    unmountol, tehát a komponensben tartva minden újranyitás kinyitná az AK 647 sorát.
+    Nem kerül a reducerbe és a fragmentbe sem — nem a maskról szóló tény, nincs helye a
+    visszavonásban, és nem érdemel helyet a megosztott URL-ben (D57). Modul-szintű
+    változóként kezdte, amit a `react-hooks/globals` joggal utasított el.
+  - **A fejlécek egymásra ragadnak**: a gyártó a tetején, a range közvetlenül alatta. Ezért
+    a soruk magassága fix változó (`--picker-head-row`) és nem a szövegre van hagyva — a
+    range `top`-ja pontosan a gyártó-sor magassága, különben a két ragadó sor egymásra
+    csúszik.
+  - **A dialógus magasság-korlátja ABSZOLÚT** (`100dvh` mínusz a scrim behúzása), nem
+    `max-height: 100%`. A százalék csendben érvénytelen volt: a scrim grid-sora
+    auto-méretű, tehát a százalék határozatlan magassághoz mérődött, a dialógus a
+    tartalmára nőtt, és a lista `overflow-y: auto`-jának nem maradt mit görgetnie, mert a
+    szülő már helyet adott mindennek. Az `.app` `overflow: hidden`-je mellett a hajtás
+    alatti rész egyszerűen elérhetetlen volt.
 - **D56 — Hover-magyarázat minden kontrollon.** A natív `title` helyett saját tooltip.
   - **Miért nem a `title`**: kb. egy másodperc késéssel jön, nem stílusozható, és a
     többsoros szöveget csonkolja. Ilyen sűrű panelen épp a késés a baj: azért mutat rá az
@@ -966,6 +994,11 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   `currentColor`-ral rajzol. A kiválasztott+hover állapot innentől külön szabály: a tinta
   marad sötét, a hover-visszajelzés a keretre költözött. A kör-chipeknél ugyanez a
   kollízió csak a fájlbeli sorrend miatt nem jelentkezett, ezért az is ki van írva.
+- 0.40 — **a polc-dialógus görgethető és gyártó szerint behajtható (D58)**. A magasság-
+  korlát százalék helyett `100dvh`-alapú, mert a scrim auto-méretű grid-sorában a százalék
+  érvénytelen volt, és a dialógus 3536 pixelre nőtt egy 720 pixeles képernyőn. A lista
+  innentől két szintű (gyártó → range), és a gyártó egy klikkel behajtható; a keresés
+  mindig kinyit, hogy egy találat ne bújjon behajtott fejléc mögé.
 - 0.39 — **saját festékkészlet (D57)**: `brand|ref` kulcsok, kereshető válaszó-dialógus
   1540 festékre, „Only mine" szűrő a gyártó-szűrő mellett. A tárolás a **URL-fragment**,
   mert a Safari `file://`-on tiltja a web storage-ot; a `localStorage` csak kényelmi

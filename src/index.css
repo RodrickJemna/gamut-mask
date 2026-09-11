@@ -40,6 +40,9 @@
   --radius: 3px;
   /* Breathing room around the paint picker, and the figure its height cap subtracts. */
   --picker-inset: 24px;
+  /* Height of the picker's brand and range header rows; also the offset the range row
+     sticks at, so the two cannot overlap. */
+  --picker-head-row: 24px;
   --gap: 24px;
 }
 

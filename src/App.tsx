@@ -24,6 +24,7 @@ import { buildSheet } from './export/sheet.ts'
 import { renderWheelImage } from './export/wheelImage.ts'
 import { sampleMask } from './geom/sample.ts'
 import { combinedField } from './paints/coverage.ts'
+import type { Brand } from './paints/types.ts'
 import { loadInventory, saveInventory, type LoadedInventory } from './state/persist.ts'
 import {
   canRedo,
@@ -134,6 +135,12 @@ export default function App() {
 
   /** D57 — the paint picker is a dialog, so its open state is presentational. */
   const [pickerOpen, setPickerOpen] = useState(false)
+  /**
+   * D58 — which brands are folded shut in the picker. Presentational too, but it lives
+   * out here rather than inside the dialog because the dialog unmounts on close: reopening
+   * it to look up one Vallejo paint should not unfold AK's 647 rows again.
+   */
+  const [foldedBrands, setFoldedBrands] = useState<ReadonlySet<Brand>>(() => new Set())
   /** Read at init, so it needs no state of its own. */
   const droppedPaints = savedInventory()?.dropped ?? 0
 
@@ -290,6 +297,8 @@ export default function App() {
       {pickerOpen && (
         <PaintPicker
           owned={state.owned}
+          folded={foldedBrands}
+          onFold={setFoldedBrands}
           dispatch={dispatch}
           onClose={() => setPickerOpen(false)}
         />
