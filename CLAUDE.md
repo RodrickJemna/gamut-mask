@@ -24,6 +24,15 @@ brands as of D52. D11 is in section 5 with the rest of the withdrawn decisions.
 reachability fields (D50) and the sheet's row height derive from, so adding a catalogue is
 that line plus a data module.
 
+Matching is scoped by TWO independent filters: the enabled brands (D48) and the owned
+paints (D57). Both are threaded as arguments so `match.ts` stays pure. The owned set is
+passed as a `Set` whose IDENTITY is the memo key for the narrowed index, so build it once
+per inventory change and never inside a render that runs on every drag frame.
+
+The inventory persists in the URL fragment, not in `localStorage`: the app is opened from
+disk in Safari, which blocks web storage on `file://` origins. Storage is attempted
+opportunistically and never depended on.
+
 `docs/setup-macos.md` documents how the toolchain was installed. Historical reference.
 
 ## Phase

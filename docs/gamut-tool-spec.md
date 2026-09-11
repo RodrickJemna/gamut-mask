@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.38
+Verzió: 0.39
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -149,6 +149,49 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D57 — Saját festékkészlet (a polc), és ami átéli a session-t.**
+  - **Miért**: 1540 tégelyre illeszteni arra válaszol, hogy „melyik festék a legközelebbi";
+    a festőasztalnál viszont az a kérdés, hogy **meg tudom-e ma festeni**, és az a polcon
+    lévő hatvan tégelyen múlik. A D48-as gyártó-szűrő gyártó szerint szűkít, ami ehhez a
+    kérdéshez a rossz tengely.
+  - **Egy festék azonosítója `brand|ref`**, a teljes katalóguson ellenőrizve: nulla
+    ütközés, és még a puszta ref-en sem. Ezek a gyártók saját nyomtatott kódjai — a
+    Citadelnél a név, mert az nem nyomtat kódot —, tehát **átélik a PDF-ek újra-kinyerését**,
+    amit egy tömb-index nem.
+  - **A kódolás MEGNEVEZI a festékeket**, a tervezett bitmaszk helyett. A bitmaszk fix 260
+    karakter, bármennyit is birtokolsz, szemben egy hatvan festékes polc 879 karakterével —
+    **de pozíciókat kódol**, tehát egy katalógus-bejegyzés elmozdulása egy régi bookmarkot
+    *más festékekre* fejtene vissza, teljesen érvényesnek látszó módon. Egy hihetőnek tűnő
+    félre-dekódolás a legrosszabb, ami ezzel a funkcióval történhet. A megnevezés pár száz
+    karakterbe kerül, és csak *eldobni* tud ismeretlen kulcsot — amit meg is számol, hogy
+    a UI kiírhassa.
+  - **Második szűrő a gyártó-szűrő MELLETT**, nem helyette: az „AK, és csak amim van"
+    értelmes kérés, és mindkét fele önmagában is. Argumentumként megy át, hogy a matcher
+    tiszta maradjon; a leszűkített index a halmaz **identitására** memoizálva, WeakMapben,
+    hogy egy leváltott polc felszabadulhasson.
+  - **A `nearestPaintOfBrand` innentől `null`-t ad**, nem dob, ha egy márkában nincs mit
+    keresni: az „AK be van kapcsolva, de nincs AK festékem" egy jelölőnégyzettel elérhető
+    hétköznapi állapot, nem hibás katalógus.
+  - **A készlet-szerkesztés kimarad a visszavonásból**: a polc a polcról szóló tény, nem a
+    mask szerkesztése, és hatvan festék bepipálása nem nyomhatja hatvan lépés alá a formát,
+    amin dolgoztál. Egy teszt aztán kiszúrta, hogy a kizárás félig volt megcsinálva: a verem
+    **teljes állapot-pillanatképeket** tárol, tehát egy mask-lépés visszavonása a benne
+    rögzített üres polcot állította vissza, és csendben kipipálta a festékeket. A
+    visszaállítás innentől **átviszi** a készletet.
+  - **A tárolás a URL-fragment**, mert az app lemezről nyílik Safariban, a Safari pedig
+    alapból tiltja a web storage-ot `file://` originen. Tehát a kézenfekvő mechanizmus épp
+    ott nem elérhető, ahol az appot használják — és bármi, ami rá épül, nálam működne és a
+    szerző polcát veszítené el. A fragment nem kér semmilyen storage API-t, `file://`-on
+    minden böngészőben működik, és **átéli a `npm run bundle`-t**, mert a bookmarkban él, nem
+    a fájlban. A `localStorage` továbbra is megpróbálódik, `try/catch`-ben, kényelmi
+    okokból ahol a böngésző engedi — de soha nem támaszkodunk rá.
+  - **A mentett polc a KEZDŐÁLLAPOTBA kerül**, nem effektből diszpetcselve: egy effekt
+    egyszer üres polccal, egyszer a valódival rendereltetne, tehát a matcher, a minták és a
+    D50-es mező is kétszer számolna betöltéskor, és az első kör hibásan.
+  - **A gyártó-jelölőnégyzetek azt számolják, amit a márka a KERESÉSHEZ ad**: három AK
+    tégellyel `AK 3 / VJ 0 / PA 0 / CT 0`, nem 647. Az a szám, ami a katalógust írja le,
+    miközben a keresés szűkítve van, hazudik. Az exportált lap ugyanezért írja ki, hogy
+    „Restricted to N owned paints".
 - **D56 — Hover-magyarázat minden kontrollon.** A natív `title` helyett saját tooltip.
   - **Miért nem a `title`**: kb. egy másodperc késéssel jön, nem stílusozható, és a
     többsoros szöveget csonkolja. Ilyen sűrű panelen épp a késés a baj: azért mutat rá az
@@ -792,7 +835,8 @@ lapszintű scroll nélkül. A lista `auto-fill` gridben, nem fix 4 oszlopban.
 - 3D gamut-test néző, több projekt kezelése
 
 Későbbi jelölt: állapot mentése/betöltése. (A D49 visszavonás-verme ehhez nem
-persistencia: memóriában él, a lapújratöltés törli.)
+persistencia: memóriában él, a lapújratöltés törli.) **Részlegesen megvalósult a
+D57-ben**: a festékkészlet fennmarad a URL-fragmentben, a mask/kör/szűrő még nem.
 
 ---
 
@@ -922,3 +966,8 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   `currentColor`-ral rajzol. A kiválasztott+hover állapot innentől külön szabály: a tinta
   marad sötét, a hover-visszajelzés a keretre költözött. A kör-chipeknél ugyanez a
   kollízió csak a fájlbeli sorrend miatt nem jelentkezett, ezért az is ki van írva.
+- 0.39 — **saját festékkészlet (D57)**: `brand|ref` kulcsok, kereshető válaszó-dialógus
+  1540 festékre, „Only mine" szűrő a gyártó-szűrő mellett. A tárolás a **URL-fragment**,
+  mert a Safari `file://`-on tiltja a web storage-ot; a `localStorage` csak kényelmi
+  ráadás. A kódolás megnevezi a festékeket, nem pozíciókat, hogy egy újra-kinyert
+  katalógus ne fejthesse félre egy régi bookmarkot.
