@@ -33,6 +33,11 @@ paints (D57). Both are threaded as arguments so `match.ts` stays pure. The owned
 passed as a `Set` whose IDENTITY is the memo key for the narrowed index, so build it once
 per inventory change and never inside a render that runs on every drag frame.
 
+A match that is on the shelf is marked green in the colour list (D59) — the one coloured
+thing outside the wheel, so don't spend that green anywhere else. `SampleList` therefore
+takes the shelf in BOTH forms: `owned` (null when the Only-mine filter is off, because the
+matcher reads null as "whole catalogues") and `shelf`, which is always the real set.
+
 The inventory persists in the URL fragment, not in `localStorage`: the app is opened from
 disk in Safari, which blocks web storage on `file://` origins. Storage is attempted
 opportunistically and never depended on.

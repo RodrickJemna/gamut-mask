@@ -148,16 +148,21 @@ export default function App() {
   const { basePolygon, offset, rotation, size, enabledBrands } = state
 
   /**
-   * The owned set, as a Set for the matcher and null when the filter is off.
+   * Two views of the same shelf.
    *
-   * Null rather than an empty Set: the matcher reads null as "search whole catalogues"
-   * and an empty Set as "search nothing", and those are genuinely different answers.
-   * Memoised because the matcher keys its narrowed index on this object's identity.
+   * `ownedSet` is what the matcher takes, and it is null when the Only-mine filter is off
+   * — null rather than an empty Set, because the matcher reads null as "search the whole
+   * catalogues" and an empty Set as "search nothing", which are genuinely different
+   * answers. `shelf` is the shelf itself, needed in BOTH modes by the green owned marker
+   * (D59): with the filter off, a match can still be a bottle you already have, which is
+   * exactly what the marker is for.
+   *
+   * So the Set is built once and the filter only decides whether matching is handed it.
+   * The memo matters because the matcher keys its narrowed index on this object's
+   * identity (D57).
    */
-  const ownedSet = useMemo(
-    () => (state.ownedOnly ? new Set(state.owned) : null),
-    [state.ownedOnly, state.owned],
-  )
+  const shelf = useMemo(() => new Set(state.owned), [state.owned])
+  const ownedSet = state.ownedOnly ? shelf : null
 
   useEffect(() => {
     saveInventory(state.owned)
@@ -278,6 +283,7 @@ export default function App() {
         samples={samples}
         brands={enabledBrands}
         owned={ownedSet}
+        shelf={shelf}
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />

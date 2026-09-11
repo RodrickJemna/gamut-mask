@@ -33,6 +33,12 @@
  * colours, not a lightness axis on the wheel (D16): see driftLabel in paints/match.ts for
  * why chroma is reported alongside lightness rather than lightness alone.
  *
+ * A colour you can ALREADY PAINT is marked green (D59): a ring around the swatch when any
+ * of its matches is on the shelf, and the green brand tag says which bottle it is. The
+ * mark goes on the swatch rather than the card border, because that border is already
+ * saying two things — hover, and the highlight that mirrors the wheel's ring — and the
+ * highlight has to win, which would hide the mark exactly while you point at the row.
+ *
  * PAINT MATCHING (D40, D44, D48) lists the nearest bottle in each ENABLED brand that is
  * within the 5% tolerance — all that qualify, or "No paint found" when none do. With no
  * brands enabled the paint lines are omitted altogether: nothing was searched, so
@@ -46,6 +52,7 @@ import { useMemo, useState } from 'react'
 import { lightnessLabel, saturationLabel, toHex } from '../color/format.ts'
 import { ANCHORS, wedgeIndexOf, wedgeOffsetOf } from '../color/wheel.ts'
 import type { Sample } from '../geom/sample.ts'
+import { paintKey } from '../paints/inventory.ts'
 import { closestOverall, differencePercent, matchingPaints } from '../paints/match.ts'
 import { BRAND_TAG, type Brand } from '../paints/types.ts'
 
@@ -55,12 +62,27 @@ type Props = {
   brands: readonly Brand[]
   /** The shelf to restrict matching to, or null for the whole catalogues (D57). */
   owned: ReadonlySet<string> | null
+  /**
+   * The shelf itself, whichever way `owned` is set: what the green marker tests against
+   * (D59). With the Only-mine filter on, every match is owned by construction and every
+   * matched swatch is ringed — redundant, but a rule with no exceptions is easier to read
+   * than one that means something different in each mode, and a ringed swatch still says
+   * the useful thing beside the rows that found nothing.
+   */
+  shelf: ReadonlySet<string>
   /** Index into `samples` currently highlighted on the wheel, or null (D46). */
   highlighted: number | null
   onHighlight: (index: number | null) => void
 }
 
-export function SampleList({ samples, brands, owned, highlighted, onHighlight }: Props) {
+export function SampleList({
+  samples,
+  brands,
+  owned,
+  shelf,
+  highlighted,
+  onHighlight,
+}: Props) {
   const [copied, setCopied] = useState<string | null>(null)
 
   /**
@@ -167,11 +189,23 @@ export function SampleList({ samples, brands, owned, highlighted, onHighlight }:
                       // swatch briefly displaying the wrong colour.
                       const key = `${hex}-${sample.x.toFixed(4)}-${sample.y.toFixed(4)}`
                       const { matches, closest } = matched[index]
+                      /*
+                        D59 — is any of the bottles offered here one you already have? Set
+                        lookups, a handful per card, so this stays in the row rather than
+                        in the matching memo: the shelf changes on its own (ticking a paint
+                        with the filter off leaves the matches identical), and folding it
+                        into that memo would recompute 1300 distance evaluations per brand
+                        to learn something a Set already knows.
+                      */
+                      const mine = matches.filter((m) => shelf.has(paintKey(m.paint)))
+                      const cardClass = ['sample']
+                      if (index === highlighted) cardClass.push('highlighted')
+                      if (mine.length > 0) cardClass.push('mine')
                       return (
                         <button
                           key={key}
                           type="button"
-                          className={index === highlighted ? 'sample highlighted' : 'sample'}
+                          className={cardClass.join(' ')}
                           onClick={() => void copy(hex)}
                           onPointerEnter={() => onHighlight(index)}
                           onPointerLeave={() => onHighlight(null)}
@@ -212,7 +246,11 @@ export function SampleList({ samples, brands, owned, highlighted, onHighlight }:
                                     .map(
                                       (m) =>
                                         `${BRAND_TAG[m.paint.brand]} ${m.paint.ref} `
-                                        + `${m.paint.name} (${m.paint.range})`.replace('  ', ' '),
+                                        + `${m.paint.name} (${m.paint.range})`.replace('  ', ' ')
+                                        // D59 — the green tag says which bottle is yours;
+                                        // this says it in words for the same reason the
+                                        // range is here rather than on the card.
+                                        + (shelf.has(paintKey(m.paint)) ? '  \u2014 on your shelf' : ''),
                                     )
                                     .join('\n')
                               : '')
@@ -238,7 +276,14 @@ export function SampleList({ samples, brands, owned, highlighted, onHighlight }:
                               </span>
                             ) : (
                               matches.map((m) => (
-                                <span className="sample-paint-row" key={m.paint.brand}>
+                                <span
+                                  className={
+                                    shelf.has(paintKey(m.paint))
+                                      ? 'sample-paint-row mine'
+                                      : 'sample-paint-row'
+                                  }
+                                  key={m.paint.brand}
+                                >
                                   <span className="sample-paint">
                                     <span className="paint-brand">
                                       {BRAND_TAG[m.paint.brand]}

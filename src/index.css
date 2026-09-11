@@ -29,6 +29,23 @@
 
   --focus: #ffffff;
 
+  /*
+   * D59 — the ONE coloured thing outside the wheel, at the author's request: a colour you
+   * can already paint. Section 6 bans a coloured accent because the wheel must be the only
+   * saturated thing on screen, so this is spent deliberately and once, on the answer to
+   * "can I mix this today", and nowhere else.
+   *
+   * Measured, not picked: 3.06:1 against `--surface`, just over the 3:1 WCAG wants for a
+   * non-text indicator. Darker greens read as green but sit too close to the mid grey to
+   * be seen at 2px; lighter ones pass but go pastel.
+   */
+  --owned: #5cd47f;
+  /*
+   * Ink for the green brand chip. The chip's usual `--bg` grey scores only 3.67:1 on that
+   * green, and the tag is 10px text, so it gets its own dark green instead: 7.63:1.
+   */
+  --owned-ink: #12301c;
+
   /* Mask overlay ink. Neutral so it reads against every hue underneath. */
   --mask-line: #ffffff;
   --mask-wash: #000000;

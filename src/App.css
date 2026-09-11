@@ -599,6 +599,32 @@
   border-radius: 2px;
 }
 
+/*
+ * D59 — a colour with a bottle already on the shelf.
+ *
+ * TWO rings, not a green border. A green border on the swatch would vanish on a green
+ * swatch, and that is not a corner case in a hue list that always shows the G wedge. So
+ * the inner ring is the card's own grey, which separates the mark from the colour it
+ * marks, and the green sits outside it against that grey — the one contrast that holds
+ * whatever the swatch is. Drawn with box-shadow rather than an outline so the two rings
+ * can differ, and because neither costs layout: 26px of swatch becomes 30px of mark in a
+ * 34px column, so nothing moves when a paint is ticked.
+ */
+.sample.mine .sample-swatch {
+  box-shadow:
+    0 0 0 1px var(--surface),
+    0 0 0 3px var(--owned);
+}
+
+/*
+ * Which bottle is yours, when a card offers one per brand. The brand tag is already a
+ * filled chip, so this recolours a shape that exists instead of adding a glyph.
+ */
+.sample-paint-row.mine .paint-brand {
+  color: var(--owned-ink);
+  background: var(--owned);
+}
+
 .sample-hex {
   grid-area: hex;
   /* The one string worth selecting by hand, so opt it back in. */

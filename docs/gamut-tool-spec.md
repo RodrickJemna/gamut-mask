@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.40
+Verzió: 0.41
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -192,6 +192,40 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
     tégellyel `AK 3 / VJ 0 / PA 0 / CT 0`, nem 647. Az a szám, ami a katalógust írja le,
     miközben a keresés szűkítve van, hazudik. Az exportált lap ugyanezért írja ki, hogy
     „Restricted to N owned paints".
+- **D59 — Zöld jelölés a festékeken, amik már a polcon vannak.**
+  - **Miért**: a lista eddig azt mondta meg, hogy *melyik* festék a legközelebbi, azt nem,
+    hogy **meg tudom-e ma festeni**. Az „Only mine" szűrő ezt úgy válaszolja meg, hogy
+    elrejti a többit; a jelölés viszont a teljes katalógus mellett is elmondja, tehát
+    látszik a „van rá festékem" és a „van rá festék, de nem az enyém" egymás mellett.
+  - **A jelölés a SWATCH-on van, nem a kártya keretén.** A keret már két dolgot mond —
+    hover, és a kör gyűrűjét tükröző kijelölés (D46) —, és a kijelölésnek kell nyernie:
+    egy harmadik állítás ugyanazon az 1 pixelen épp akkor tüntetné el a jelölést, amikor
+    rámutatsz a sorra.
+  - **KÉT gyűrű, nem zöld border.** Egy zöld keret egy zöld swatch-on eltűnik, és ez nem
+    sarokeset egy hue-listában, ami mindig kiírja a G szeletet is. A belső gyűrű ezért a
+    kártya saját szürkéje — ez választja el a jelölést attól, amit jelöl —, a zöld pedig
+    ezen a szürkén ül, mert ez az egyetlen kontraszt, ami bármilyen swatch mellett tart.
+    `box-shadow`, nem `outline`: így a két gyűrű különbözhet, és egyik sem kér layoutot —
+    26 pixelből 30 lesz egy 34 pixeles kolumnában, tehát egy festék bepipálásától nem
+    mozdul el semmi.
+  - **A zöld MÉRT, nem választott**: `#5cd47f`, 3.06:1 a `--surface`-hez, épp a 3:1 fölött,
+    amit a WCAG nem-szöveges jelzésre kér. A sötétebb zöldek zöldnek látszanak, de túl közel
+    ülnek a közepes szürkéhez ahhoz, hogy 2 pixelen meglássd; a világosabbak átmennek, de
+    pasztellek. A márka-chip zöldön a megszokott `--bg` tinta csak 3.67:1, 10 pixeles
+    szövegre kevés, ezért kap külön sötétzöldet (`--owned-ink`, 7.63:1).
+  - **Ez az EGYETLEN színes dolog a körön kívül.** A 6. szakasz azért tiltja a színes
+    akcentust, mert a körnek kell az egyetlen szaturált dolognak lennie a képernyőn — tehát
+    ez egyszer van elköltve, arra a kérdésre, hogy „meg tudom-e ma festeni", és máshová nem.
+  - **A chip mondja meg, MELYIK tégely a sajátod**, ha a kártya márkánként egyet kínál: a
+    márka-jel már kitöltött chip, tehát egy létező forma színeződik át, nem új ikon kerül a
+    sorba.
+  - **Csak az ENGEDÉLYEZETT gyártók között**: a jelölés a kiírt találatokat magyarázza. Ha
+    van rá Citadel festéked, de a Citadel szűrő ki van kapcsolva, nincs gyűrű — abban a
+    módban a panel egyáltalán nem beszél a Citadelről, tehát nem is hallgat el semmit.
+  - **Az „Only mine" módban minden találat definíció szerint a sajátod**, tehát minden
+    talált swatch gyűrűt kap. Redundáns, de a kivétel nélküli szabály könnyebben olvasható,
+    mint az, ami módonként mást jelent — és a gyűrű ott is mond valamit a „No paint found"
+    sorok mellett.
 - **D58 — A polc-dialógus két szintje, és a gyártó összecsukása.**
   - **Miért**: a dialógus 1540 sora 3536 pixel magas volt egy 720 pixeles képernyőn. Előbb
     a görgetés hiányzott (lásd lejjebb), de a görgetés csak azt oldja meg, hogy *el lehet*
@@ -994,6 +1028,11 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   `currentColor`-ral rajzol. A kiválasztott+hover állapot innentől külön szabály: a tinta
   marad sötét, a hover-visszajelzés a keretre költözött. A kör-chipeknél ugyanez a
   kollízió csak a fájlbeli sorrend miatt nem jelentkezett, ezért az is ki van írva.
+- 0.41 — **zöld jelölés a polcon lévő festékeken (D59)**: gyűrű a swatch körül, ha a
+  kártya valamelyik találata a sajátod, és zöld márka-chip azon a soron, amelyik az. A
+  jelölés a swatch-on van, nem a kártya keretén, mert azt a keretet a kijelölés már
+  elkéri; két gyűrű szürke réssel, mert egy zöld keret egy zöld swatch-on eltűnik. A zöld
+  mért: 3.06:1 a panel szürkéjén.
 - 0.40 — **a polc-dialógus görgethető és gyártó szerint behajtható (D58)**. A magasság-
   korlát százalék helyett `100dvh`-alapú, mert a scrim auto-méretű grid-sorában a százalék
   érvénytelen volt, és a dialógus 3536 pixelre nőtt egy 720 pixeles képernyőn. A lista
