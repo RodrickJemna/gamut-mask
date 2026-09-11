@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.32
+Verzió: 0.33
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -820,3 +820,13 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   rajzolt ikonok, 3×2-ben. Két új forma: **Complementary** (Gurney hosszú rombusza, a
   másik általa ajánlott alak) és **Rectangle** (két komplementer pár). A Rectangle adja a
   legtöbb színt (15) és 1.00-s egyensúlyt.
+- 0.33 — **hibajavítás (D42, harmadik alkalom)**: a mask-húzás horgonya a **kirajzolt**
+  alakzat közepe, nem a tárolt polygon centroidja. A kettő csak addig egyezik, amíg minden
+  tárolt csúcs a körlapon belül van; a D22 viszont szándékosan engedi kívül (40%-os
+  méretnél átformázva a tárolt rádiuszok 2.4-ig mennek, és épp ez teszi a méret-csúszkát
+  visszafordíthatóvá). Olyankor a tárolt centroid nem a körön lévő pozíció, és a húzás
+  **visszafelé** vitte az alakzatot: a kirajzolt formán mérve egy átformázott analóg mask
+  lefelé −0.03-ot, balra −0.19-et „utazott". Clampeléssel a horgony mindig a körlapon van,
+  egy elférő masknál pedig pontosan a régi érték, tehát az eredeti aszimmetria-javítás
+  változatlan. A regressziós teszt a **kirajzolt csúcsok átlagán** mér, nem az offseten és
+  nem a terület-centroidon (az utóbbi egy clampelt, elfajuló gyűrűn elszáll).

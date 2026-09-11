@@ -194,13 +194,16 @@ export function reducer(state: AppState, action: Action): AppState {
     /**
      * D42: dragging the mask body.
      *
-     * What is clamped is WHERE THE MASK ENDS UP, not the offset itself. The displayed
-     * centre is `size * baseCentroid + offset`, so clamping the offset alone made the
-     * reachable positions a unit disk centred on `size * baseCentroid` — which is
-     * off-centre for any shape whose own centre is, i.e. any reshaped mask. Measured on
-     * a hand-mirrored triangle: the centre could be pushed to 0.82 rightwards but only
-     * 0.60 leftwards. Clamping the placed centre instead makes every direction reach the
-     * rim, and still stops the mask being flung off the wheel.
+     * What is clamped is WHERE THE MASK ENDS UP, not the offset itself. Clamping the
+     * offset alone made the reachable positions a unit disk centred on the mask's own
+     * centre — off-centre for any reshaped mask. Measured on a hand-mirrored triangle:
+     * the centre could be pushed to 0.82 rightwards but only 0.60 leftwards. Clamping the
+     * placed centre instead makes every direction reach the rim, and still stops the mask
+     * being flung off the wheel.
+     *
+     * The remaining asymmetry is not a bug: a mask sitting near one edge of the disk
+     * genuinely has more room in one direction than the other. What was a bug was TRAVEL
+     * IN THE WRONG DIRECTION — see the note on the anchor below.
      */
     case 'dragMask': {
       const delta = toOffsetVector(action.deltaDisplay, state)
@@ -208,8 +211,24 @@ export function reducer(state: AppState, action: Action): AppState {
         x: action.offsetAtStart.x + delta.x,
         y: action.offsetAtStart.y + delta.y,
       }
-      const base = centroid(state.basePolygon)
-      const anchor = { x: base.x * state.size, y: base.y * state.size }
+      /**
+       * The anchor is where the mask is DRAWN at zero offset, which means clamping the
+       * scaled polygon before taking its centroid.
+       *
+       * It used to be `centroid(basePolygon) * size`, and that is only the same thing
+       * while every stored vertex is inside the disk. D22 deliberately allows them
+       * outside — reshape a mask at 40% size and its stored radii reach 2.4, which is
+       * what keeps the size slider reversible — and then the stored centroid is not a
+       * position on the wheel at all. Anchoring on it displaced the reachable offsets so
+       * far that the drag went WRONG WAY ROUND: measured on the drawn shape, a reshaped
+       * analogous mask travelled -0.03 downward and -0.19 leftward, so pushing it down
+       * moved it up. Three of the probed directions came out negative.
+       *
+       * Clamping first bounds the anchor inside the disk whatever the stored coordinates
+       * do, and for a mask that fits it is the old value exactly, so the asymmetry fix
+       * this line originally carried is untouched.
+       */
+      const anchor = centroid(clampPolygon(scale(state.basePolygon, state.size)))
       const placed = clampToDisk({ x: anchor.x + wanted.x, y: anchor.y + wanted.y })
       const next = { x: placed.x - anchor.x, y: placed.y - anchor.y }
       if (samePoint(next, state.offset)) return state

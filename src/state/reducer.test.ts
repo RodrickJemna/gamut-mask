@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { polar, radiusOf } from '../color/wheel.ts'
 import { centroid } from '../geom/polygon.ts'
-import { buildPreset } from '../mask/presets.ts'
+import { PRESETS, buildPreset, type PresetId } from '../mask/presets.ts'
 import { BRANDS, type Brand } from '../paints/types.ts'
 import {
   MAX_SIZE,
@@ -564,5 +564,108 @@ describe('setWheel (D53)', () => {
   it('stays JSON-serialisable, so a saved file can carry the wheel (D18)', () => {
     const state = reducer(initialState, { type: 'setWheel', id: 'muted' })
     expect(JSON.parse(JSON.stringify(state))).toEqual(state)
+  })
+})
+
+/**
+ * Dragging must move the mask THE WAY THE POINTER WENT. This is the third bug of the same
+ * family — clamping an internal quantity rather than the observable one — so it is tested
+ * on what the eye reads, the mean of the DRAWN vertices, rather than on the offset.
+ *
+ * The area centroid is deliberately not the observable here: on a clamped, near-degenerate
+ * ring it divides by an almost-zero area and diverges, which made an earlier measurement
+ * report a travel of 23 units. The vertex mean is a convex combination, so it is always
+ * inside the disk and always meaningful.
+ */
+describe('dragging follows the pointer (D42)', () => {
+  const drawnMean = (state: AppState) => {
+    const poly = displayPolygon(state)
+    return {
+      x: poly.reduce((sum, p) => sum + p.x, 0) / poly.length,
+      y: poly.reduce((sum, p) => sum + p.y, 0) / poly.length,
+    }
+  }
+
+  /** Drag in a straight line, reporting how far the drawn shape went that way. */
+  const travel = (state: AppState, dx: number, dy: number) => {
+    const from = drawnMean(state)
+    const start = { ...state.offset }
+    let current = state
+    let best = -Infinity
+    let reversal = 0
+    for (let i = 1; i <= 40; i++) {
+      const d = (1.6 * i) / 40
+      current = reducer(current, {
+        type: 'dragMask',
+        deltaDisplay: { x: dx * d, y: dy * d },
+        offsetAtStart: start,
+      })
+      const along = drawnMean(current).x * dx + drawnMean(current).y * dy
+      if (along > best) best = along
+      reversal = Math.max(reversal, best - along)
+    }
+    const to = drawnMean(current)
+    return { distance: (to.x - from.x) * dx + (to.y - from.y) * dy, reversal }
+  }
+
+  const DIRECTIONS: [string, number, number][] = [
+    ['down', 0, 1],
+    ['up', 0, -1],
+    ['right', 1, 0],
+    ['left', -1, 0],
+  ]
+
+  /**
+   * The state that exposed it: reshaped at 40% size and scaled back to 100%, which leaves
+   * stored radii above 2. D22 allows that — it is what makes the size slider reversible —
+   * so the drag has to cope with it.
+   */
+  const reshapedSmallThenGrown = (id: PresetId): AppState =>
+    (
+      [
+        { type: 'loadPreset', id },
+        { type: 'setSize', factor: 0.4 },
+        { type: 'beginDrag', index: 0 },
+        { type: 'moveVertex', index: 0, to: { x: 0, y: -0.95 } },
+        { type: 'endDrag' },
+        { type: 'setSize', factor: 1 },
+        { type: 'setRotation', deg: 90 },
+      ] as Action[]
+    ).reduce(reducer, initialState)
+
+  it('stores vertices outside the disk in that state, as D22 permits', () => {
+    const state = reshapedSmallThenGrown('analogous')
+    const outside = state.basePolygon.filter((p) => radiusOf(p.x, p.y) > 1)
+    expect(outside.length).toBeGreaterThan(0)
+    // ...while everything drawn is still inside it.
+    for (const p of displayPolygon(state)) expect(radiusOf(p.x, p.y)).toBeLessThanOrEqual(1 + 1e-12)
+  })
+
+  it('never moves the mask against the drag, on any preset', () => {
+    for (const preset of PRESETS) {
+      for (const state of [
+        reducer(initialState, { type: 'loadPreset', id: preset.id }),
+        reshapedSmallThenGrown(preset.id),
+      ]) {
+        for (const [name, dx, dy] of DIRECTIONS) {
+          const { distance } = travel(state, dx, dy)
+          expect(
+            distance,
+            `${preset.id} dragged ${name} travelled ${distance.toFixed(3)}`,
+          ).toBeGreaterThan(0.1)
+        }
+      }
+    }
+  })
+
+  it('does not double back partway through a drag', () => {
+    for (const preset of PRESETS) {
+      const state = reshapedSmallThenGrown(preset.id)
+      for (const [name, dx, dy] of DIRECTIONS) {
+        const { reversal } = travel(state, dx, dy)
+        expect(reversal, `${preset.id} dragged ${name} reversed by ${reversal.toFixed(3)}`)
+          .toBeLessThan(0.05)
+      }
+    }
   })
 })

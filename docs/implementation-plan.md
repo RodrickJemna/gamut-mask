@@ -190,6 +190,13 @@ All three questions that were open during the build are settled, in spec version
 
 ## 6. Known issues, not yet decided
 
+- **Dragging a mask whose stored vertices are outside the disk deforms it.** Fixed in 0.33
+  so the drag never travels backwards, but it still cannot be rigid: those vertices are
+  pinned to the rim by D22's clamp, so translating the mask slides them along it and the
+  shape morphs. Reachable by reshaping at a small size and scaling back up. Inherent to
+  keeping the size slider reversible; the alternative — clamping stored coordinates — is
+  what D22 rejected.
+
 - **Very high colour counts scroll the list column.** Above roughly 20 the samples
   column overflows and scrolls internally; the wheel and panel stay fixed. Making it fit
   would mean either truncating paint names or dropping a D36 column, so it is left.
