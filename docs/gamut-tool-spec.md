@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.37
+Verzió: 0.38
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -916,3 +916,9 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
 - 0.37 — **hover-magyarázat (D56)**: saját tooltip a natív `title` helyett, data-attribútumokkal
   és dokumentum-szintű figyeléssel. A preset-ikonok Gurney jellemzésével mondják el, mire
   jók; a színkártyák elmagyarázzák a számokat, köztük hogy az `S` hue-nként normalizált.
+- 0.38 — **hibajavítás (D55)**: a kiválasztott preset ikonja eltűnt hoverre. A `:hover`
+  szabály egy pszeudo-osztállyal specifikusabb volt a `[aria-pressed]`-esnél, tehát a
+  kiválasztott gombra is ő nyert, és világos tintát tett a világos alapra — az ikon pedig
+  `currentColor`-ral rajzol. A kiválasztott+hover állapot innentől külön szabály: a tinta
+  marad sötét, a hover-visszajelzés a keretre költözött. A kör-chipeknél ugyanez a
+  kollízió csak a fájlbeli sorrend miatt nem jelentkezett, ezért az is ki van írva.

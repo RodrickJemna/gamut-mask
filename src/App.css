@@ -168,6 +168,16 @@
   box-shadow: 0 0 0 1px var(--focus);
 }
 
+/*
+ * Spelled out for the same reason as the presets above: these two rules are equally
+ * specific, so which wins depends on their order in the file, and hovering the selected
+ * chip would drop its ring the moment someone reordered them.
+ */
+.wheel-chip[aria-checked='true']:hover {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--focus);
+}
+
 .wheel-name {
   font-size: 11px;
   color: var(--text-muted);
@@ -260,6 +270,20 @@
   color: #333333;
   background: var(--text);
   border-color: var(--text);
+}
+
+/*
+ * SELECTED AND HOVERED has to be spelled out. The plain hover rule above is one
+ * pseudo-class more specific than the pressed rule, so it won on the selected button too
+ * and set the light ink on the light ground — and since the icon is drawn in
+ * `currentColor`, the shape vanished entirely on hover. Keeping the dark ink here and
+ * moving the hover feedback to the border is the fix; the ring reads against the light
+ * fill where a colour change cannot.
+ */
+.presets button[aria-pressed='true']:hover:not(:disabled) {
+  color: #333333;
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 1px var(--border-strong);
 }
 
 .presets button:disabled {
