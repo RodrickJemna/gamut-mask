@@ -202,8 +202,8 @@ export function layoutSheet(
   c.text(
     MARGIN + 56,
     y,
-    'Areas balance inversely to lightness x chroma (Munsell): the dominant is the most '
-      + 'muted, the accent the strongest.',
+    'Areas balance inversely to lightness x chroma and the hues oppose, so the weighted '
+      + 'palette sits on the neutral (Munsell). Bias is how far off it lands.',
     { size: 7, hex: DIM },
   )
   y += 6
@@ -234,8 +234,8 @@ export function layoutSheet(
     }
     c.strokeRect(MARGIN, barTop, SCHEME_BAR_W, 11, RULE, 0.4)
 
-    const balance = `balance ${scheme.balance.toFixed(2)}`
-    c.text(MARGIN + SCHEME_BAR_W + 12, y, balance, { size: 8, hex: DIM })
+    const bias = `bias ${Math.round(scheme.bias * 100)}%`
+    c.text(MARGIN + SCHEME_BAR_W + 12, y, bias, { size: 8, hex: DIM })
 
     y += 14
     for (const role of scheme.roles) {

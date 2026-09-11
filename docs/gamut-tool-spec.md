@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.34
+Verzió: 0.35
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -208,12 +208,32 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
     egy semleges nem tud kiegyensúlyozatlanná tenni semmit — ő az a pont, amin a többi
     egyensúlyoz. Bármekkora területet elbír, és a pontszám csak a kromatikus tagokat
     kötözi. Pontosan így működik egy nagy tompa alapszín két kromatikus akcentussal.
-  - **A `balance` szám kiírva**, nem elrejtve: 1.00 = pontosan Munsell szerint egyensúlyos
-    ezeken a területeken. Ha a mask színeinek erőssége nem fogja át a 60-30-10-hez kellő
-    **6×**-os tartományt, akkor ennél jobb nem lehet — mérve: triád **1.00 / 1.07 / 1.13**,
-    split 1.09 / 1.10 / 1.29, analóg 1.25 / 2.56 / 3.20, atmoszférikus 1.57 / 1.80 / 2.54.
-    Az analóg és az atmoszférikus mask szűk erősség-tartománya (3.8×, illetve 2.9×) tehát
-    **nem tud** három jól egyensúlyozott felosztást adni, és ezt a szám megmondja.
+  - **AZ ERŐSSÉG EGYMAGÁBAN NEM ELÉG** (0.35-ben javítva). Az első implementáció csak
+    nagyságokat pontozott, tehát semmit nem mondott arról, **hol** vannak a színek a körön:
+    „egy zöld 60%-on és egy másik zöld 30%-on" ugyanolyan jó pontot kapott, mint zöld a
+    vörössel. Három ciánt, vagy két zöldet és egy ciánt választott, a gamut felét
+    kihasználatlanul hagyva. Munsell viszont **irányról** beszél: „egy ragyogó pont erős
+    vörösből kiegyensúlyoz egy nagyobb foltot a legszürkébb **kékeszöldből**".
+    - Ezért a szín ereje **vektor**: value × chroma a hue irányába, ami Oklabban simán
+      `L · (a, b)`, és a paletta akkor egyensúlyos, ha a **területtel súlyozott összeg a
+      semlegesre esik**. Ez az egy feltétel mindkét felét tartalmazza a szabálynak: két
+      színnél `w1·m1 = −w2·m2` egyszerre írja elő a területek fordított arányát **és** a
+      hue-k szembenállását. Szigorúan hűbb, mint a nagyság-teszt, amit leváltott.
+    - **A kiírt szám a `bias`**: `|Σ w·m| / Σ |w·m|`, 0% = a semlegesen egyensúlyoz,
+      100% = minden egy irányba húz. A totállal normálva iránymérték, tehát egy telített és
+      egy tompa palettát összehasonlíthatóvá tesz.
+    - Mérve, a választott sémák: a régi pontozással **60–98%** bias, az újjal a körön
+      átnyúló maskoknál **3–9%**.
+  - **Három különböző hue-család, ahol a mask engedi.** Egy kiegyensúlyozott paletta is
+    duplázhat — két sárga, amelyek együtt kiegyenlítenek egy magentát, pontosan
+    egyensúlyos, és mégis négy szeletet hagy ki —, ami tévedésnek olvasódik, akkor is, ha
+    az aritmetika helyes. A preferencia **mérve majdnem ingyen van**: három családot
+    megkövetelni 0–2 pont biast kerül a preseteken. A semleges a saját családja, mert nem
+    „még egy" semmiből.
+  - **Szűk gamut nem tud egyensúlyozni, és ezt kimondja.** Egy analóg mask minden színe
+    kb. ugyanarra húz, tehát semmilyen súlyozás nem oltja ki őket: a legjobb sémái **94%**
+    felett vannak. Ez a sémáról igaz, nem a kereső hibája — egy analóg gamut szándékosan
+    egyoldalú, épp ezért választja az ember.
   - **A változatosság szakaszosan lazul**, nem éhezik el: az első kör külön akcentust ÉS
     külön dominánst kér (így három *ötlet* jön ki, nem egy ötlet három helyettesítéssel),
     a második csak külön akcentust, a harmadik bármit. Négy színű mask így hármat ad;
@@ -839,3 +859,8 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
 - 0.34 — **a 60-30-10 az exportált lapon is (D54)**: arányos sáv, `balance` szám, és
   szerepenként a részarány, a hex és a festéktalálat. A `layoutSheet` közös, tehát a PDF és
   a JPEG egyszerre kapta meg.
+- 0.35 — **a 60-30-10 pontozása vektoros (D54 javítása)**: az erősség value × chroma a hue
+  irányába, és a paletta akkor egyensúlyos, ha a súlyozott összeg a semlegesre esik. A
+  korábbi, csak nagyságot néző pontozás három ciánt is választott (60–98% bias); az új a
+  körön átnyúló maskoknál 3–9%-ot ad, és ahol lehet, három különböző hue-családot használ.
+  A kiírt szám `bias` (0% = egyensúlyos), a `balance` arány helyett.

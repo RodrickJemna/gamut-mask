@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { buildPreset } from '../mask/presets.ts'
 import { sampleMask } from '../geom/sample.ts'
-import { WHEELS, wheelById } from '../color/wheel.ts'
+import { WHEELS, wedgeIndexOf, wheelById } from '../color/wheel.ts'
 import type { Sample } from '../geom/sample.ts'
-import { SHARES, buildSchemes, strength } from './scheme.ts'
+import { SHARES, buildSchemes, moment, strength } from './scheme.ts'
 
 /** A stand-in sample: only oklab and the position identity matter to this module. */
 const at = (L: number, a: number, b: number, x = a, y = b): Sample => ({
@@ -67,38 +67,64 @@ describe('60-30-10 schemes', () => {
     }
   })
 
-  it('scores a perfectly balanced trio as 1', () => {
-    // Strengths 1 : 2 : 6 against areas 0.6 : 0.3 : 0.1 give equal products.
-    const base = 0.02
-    const trio = [
-      at(0.5, base / 0.5, 0, 0.1, 0),
-      at(0.5, (2 * base) / 0.5, 0, 0.2, 0),
-      at(0.5, (6 * base) / 0.5, 0, 0.3, 0),
-    ]
-    const [scheme] = buildSchemes(trio, 1)
-    expect(scheme.balance).toBeCloseTo(1, 9)
+  it('is a vector: its length is the scalar strength', () => {
+    const s = at(0.7, 0.12, -0.05)
+    const m = moment(s)
+    expect(Math.hypot(m.x, m.y)).toBeCloseTo(strength(s), 12)
   })
 
-  it('scores an unbalanced trio above 1, and worse the further off it is', () => {
-    const equalStrengths = [
-      at(0.5, 0.1, 0, 0.1, 0),
-      at(0.5, 0.1, 0, 0.2, 0),
-      at(0.5, 0.1, 0, 0.3, 0),
+  /**
+   * The whole point of the vector form: cancelling requires OPPOSING hues as well as the
+   * right magnitudes. Same strengths, same areas, only the directions differ.
+   */
+  it('scores a cancelling trio as balanced and a same-hue trio as biased', () => {
+    /*
+      Strengths 1 : 2 : 6 against areas 0.6 : 0.3 : 0.1 make the three WEIGHTED moments
+      equal in length, so they cancel exactly when their hues are 120 degrees apart — and
+      they cannot cancel at all if the three sit on one line, whatever the magnitudes,
+      since three equal vectors on a line never sum to zero. That is the arithmetic reason
+      a triad mask scores so well and an analogous one cannot.
+    */
+    const k = 0.04
+    const spoke = (strengthWanted: number, degrees: number) => {
+      const rad = (degrees * Math.PI) / 180
+      const scale = strengthWanted / 0.5
+      return at(0.5, scale * Math.cos(rad), scale * Math.sin(rad), degrees, 0)
+    }
+    const opposed = [spoke(k / 2, 0), spoke(k, 120), spoke(3 * k, 240)]
+    expect(buildSchemes(opposed, 1)[0].bias).toBeCloseTo(0, 6)
+
+    // Identical magnitudes, but all three pointing the same way: nothing cancels.
+    const sameWay = [
+      at(0.5, k, 0, 0.1, 0),
+      at(0.5, 2 * k, 0, 0.2, 0),
+      at(0.5, 6 * k, 0, 0.3, 0),
     ]
-    // Equal strengths with unequal areas: the products run 0.6 : 0.3 : 0.1, so 6x off.
-    expect(buildSchemes(equalStrengths, 1)[0].balance).toBeCloseTo(6, 9)
+    expect(buildSchemes(sameWay, 1)[0].bias).toBeCloseTo(1, 6)
   })
 
-  it('treats a neutral as free, since it has no strength to balance', () => {
-    // The grey may take any area; only the two chromatic members are constrained.
+  it('is scale-free, so a vivid palette is not penalised for being vivid', () => {
+    const trio = (k: number) => [
+      at(0.5, k, 0, 0.1, 0),
+      at(0.5, 2 * k, 0, 0.2, 0),
+      at(0.5, -4 * k, 0, 0.3, 0),
+    ]
+    expect(buildSchemes(trio(0.02), 1)[0].bias).toBeCloseTo(
+      buildSchemes(trio(0.08), 1)[0].bias,
+      9,
+    )
+  })
+
+  it('treats a neutral as free, since its moment is zero', () => {
+    // The grey may take any area; only the two chromatic members have to cancel.
     const trio = [
       at(0.6, 0, 0, 0, 0),
       at(0.5, 0.06, 0, 0.2, 0),
-      at(0.5, 0.18, 0, 0.3, 0),
+      at(0.5, -0.18, 0, 0.3, 0),
     ]
     const [scheme] = buildSchemes(trio, 1)
-    // 0.3 * (0.5*0.06) = 0.009 and 0.1 * (0.5*0.18) = 0.009: exactly balanced.
-    expect(scheme.balance).toBeCloseTo(1, 9)
+    // 0.3 * (0.5*0.06) against 0.1 * (0.5*0.18), opposed: exactly cancelling.
+    expect(scheme.bias).toBeCloseTo(0, 6)
     expect(scheme.roles[0].sample.oklab.a).toBe(0)
   })
 
@@ -107,13 +133,61 @@ describe('60-30-10 schemes', () => {
     expect(buildSchemes([at(0.3, 0, 0, 0, 0), at(0.6, 0, 0, 1, 0), at(0.9, 0, 0, 2, 0)])).toEqual([])
   })
 
-  it('returns schemes best-balanced first', () => {
+  it('returns schemes least-biased first', () => {
     for (const preset of ['triad', 'split', 'analogous', 'atmospheric'] as const) {
       const samples = sampleMask(buildPreset(preset, 0), WHEELS[0])
       const found = buildSchemes(samples, 3)
       for (let i = 1; i < found.length; i++) {
-        expect(found[i].balance).toBeGreaterThanOrEqual(found[i - 1].balance)
+        expect(found[i].bias).toBeGreaterThanOrEqual(found[i - 1].bias)
       }
+    }
+  })
+
+  const SPANNING = ['triad', 'split', 'complement', 'rectangle'] as const
+
+  /**
+   * The bug this criterion fixes. Scoring on magnitudes alone chose palettes like three
+   * cyans, landing 0.60-0.98 off the neutral. The BEST scheme on a mask that spans the
+   * wheel must now come out close to balanced. Only the best is pinned: the second and
+   * third are additionally required to bring a fresh accent and dominant, and that
+   * competes with balance — which is why the figure is on screen for each of them.
+   */
+  it('finds a well balanced palette on every mask that spans the wheel', () => {
+    for (const preset of SPANNING) {
+      const samples = sampleMask(buildPreset(preset, 0), WHEELS[0])
+      const found = buildSchemes(samples, 3)
+      expect(found.length).toBe(3)
+      expect(found[0].bias, `${preset} best scheme at bias ${found[0].bias.toFixed(2)}`)
+        .toBeLessThan(0.12)
+    }
+  })
+
+  /**
+   * ...and spreads across the wheel, which was the other half of the complaint: a
+   * balanced palette can still double up on one family while leaving four wedges unused.
+   * The neutral counts as its own family, since it is not "another" of any hue.
+   */
+  it('uses three distinct hue families wherever the mask allows it', () => {
+    for (const preset of SPANNING) {
+      const samples = sampleMask(buildPreset(preset, 0), WHEELS[0])
+      for (const scheme of buildSchemes(samples, 3)) {
+        const families = new Set(
+          scheme.roles.map((r) => (r.sample.t === 0 ? -1 : wedgeIndexOf(r.sample.theta))),
+        )
+        expect(families.size, `${preset} reused a hue family`).toBe(3)
+      }
+    }
+  })
+
+  /**
+   * ...and says so when a mask cannot. Every colour of an analogous wedge points the same
+   * way, so no weighting cancels them. Reporting a good score here would be a lie about
+   * the scheme, not a better search.
+   */
+  it('reports a narrow gamut as unbalanced rather than pretending', () => {
+    const samples = sampleMask(buildPreset('analogous', 0), WHEELS[0])
+    for (const scheme of buildSchemes(samples, 3)) {
+      expect(scheme.bias).toBeGreaterThan(0.8)
     }
   })
 

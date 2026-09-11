@@ -6,10 +6,10 @@
  * than as three swatches of equal size. Reading the bar left to right is reading the
  * model from its largest area to its smallest, which is the order you paint in.
  *
- * The BALANCE figure is shown, not hidden. 1.00 means the three satisfy Munsell's rule
- * exactly at these areas; a mask whose colours do not span the 6x of strength that
- * 60-30-10 needs cannot do better than it says, and the number is the only honest way to
- * convey that — this panel shows L, S and paint deltas for the same reason.
+ * The BIAS figure is shown, not hidden: how far off the neutral the area-weighted palette
+ * lands, 0% being balanced. A narrow gamut cannot get near zero — every colour in an
+ * analogous mask pulls the same way — and the number is the only honest way to say so.
+ * This panel shows L, S and paint deltas for the same reason.
  *
  * Hovering a segment rings that colour on the wheel, reusing D46 rather than inventing a
  * second highlight: the schemes are drawn from the same samples as the list, so the same
@@ -71,8 +71,9 @@ export function SchemeStrip({ samples, brands, onHighlight, highlighted }: Props
       <div className="schemes-head">
         <h2>60&ndash;30&ndash;10</h2>
         <span className="schemes-note">
-          Areas balance inversely to lightness &times; chroma (Munsell), so the dominant is
-          the most muted and the accent the strongest.
+          Areas balance inversely to lightness &times; chroma and the hues oppose, so the
+          weighted palette sits on the neutral (Munsell). Dominant most muted, accent
+          strongest.
         </span>
       </div>
 
@@ -154,9 +155,9 @@ function SchemeBar({
         ))}
         <span
           className="scheme-balance"
-          title="Ratio of the largest area x strength product to the smallest. 1.00 is Munsell-balanced; higher means this mask cannot span the 6x of colour strength 60-30-10 wants."
+          title="How far off the neutral this palette sits: the area-weighted sum of lightness x chroma, as a share of its own total. 0% balances on middle grey; a narrow gamut cannot get near it, because all of its colours pull the same way."
         >
-          {scheme.balance.toFixed(2)}
+          bias {Math.round(scheme.bias * 100)}%
         </span>
       </div>
     </div>
