@@ -864,7 +864,7 @@
   z-index: 20;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: var(--picker-inset);
   /* Dimmed rather than opaque: the wheel stays visible behind, which is the thing the
      shelf is being stocked for. */
   background: rgba(0, 0, 0, 0.45);
@@ -875,7 +875,15 @@
   flex-direction: column;
   gap: 10px;
   width: min(720px, 100%);
-  max-height: 100%;
+  /*
+   * An ABSOLUTE cap, not `max-height: 100%`. The percentage was ignored: the scrim's grid
+   * row is auto-sized, so 100% resolved against an indefinite height, the dialog grew to
+   * its content — 3536px inside a 720px viewport — and `.picker-groups` never overflowed
+   * because its parent had made room. With `.app` set to `overflow: hidden`, everything
+   * past the fold was simply unreachable.
+   */
+  max-height: calc(100dvh - 2 * var(--picker-inset));
+  min-height: 0;
   padding: 14px;
   background: var(--surface);
   border: 1px solid var(--border-strong);
