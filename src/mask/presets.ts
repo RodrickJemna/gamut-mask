@@ -31,43 +31,72 @@ export type BuildablePresetId = PresetId
 export const PRESETS: readonly {
   id: PresetId
   label: string
+  /**
+   * What the scheme is FOR, shown on hover (D56).
+   *
+   * The character descriptions are Gurney's own wording where he gives one, rather than
+   * my impression of the shape: these are named schemes with a documented feel, and
+   * paraphrasing them into "vibrant and modern" would lose the only part a painter cannot
+   * read off the wheel.
+   */
   hint: string
   available: boolean
 }[] = [
   {
     id: 'triad',
     label: 'Triad',
-    hint: 'Three hues 120 degrees apart; edges pass near the neutral',
+    hint:
+      'Three hues 120 degrees apart, with the edges passing close to the neutral. The most '
+      + 'general-purpose mask: a full spread of hue with plenty of near-greys to mix '
+      + 'through, so it suits almost any subject. Start here.',
     available: true,
   },
   {
     id: 'split',
     label: 'Split complementary',
-    hint: 'A hue plus the two flanking its complement — vibrant, a little unsettled',
+    hint:
+      'A hue plus the two flanking its opposite, avoiding the opposite itself. Gurney '
+      + 'calls the result vibrant and attractive but a little unsettled and jarring — '
+      + 'good for something that should not feel at rest.',
     available: true,
   },
   {
     id: 'complement',
     label: 'Complementary',
-    hint: 'A hue and its opposite through the centre — an opposition, fire against ice',
+    hint:
+      'A hue and its opposite, spanning the wheel through the centre. Gurney: an '
+      + 'opposition of elemental principles, like fire and ice. Stable, because the '
+      + 'palette\u2019s own neutral coincides with the wheel\u2019s. Warm light against cool '
+      + 'shadow lives here.',
     available: true,
   },
   {
     id: 'rectangle',
     label: 'Rectangle',
-    hint: 'Two complementary pairs at the corners of a rectangle — four hues, still balanced',
+    hint:
+      'Two complementary pairs at the corners \u2014 which is what any rectangle centred on '
+      + 'the wheel is. Four hues and still balanced, so it gives the widest palette of '
+      + 'these six: use it when a model needs several distinct colours rather than one '
+      + 'accent.',
     available: true,
   },
   {
     id: 'analogous',
     label: 'Analogous',
-    hint: 'A band of neighbouring hues; pure, and slightly otherworldly',
+    hint:
+      'A band of neighbouring hues, nothing opposing them. Gurney describes the effect as '
+      + 'brilliancy, purity or weirdness \u2014 not something you find in nature, but strong '
+      + 'for otherworldly work. Deliberately one-sided, so its 60-30-10 cannot balance.',
     available: true,
   },
   {
     id: 'atmospheric',
     label: 'Atmospheric',
-    hint: 'Off-centre haze: near-neutrals of every hue, saturated only toward one',
+    hint:
+      'An off-centre blob: near-neutrals of every hue, plus saturation in one direction '
+      + 'only. What haze does to colour, and the one mask the rotate and size sliders '
+      + 'cannot reach on their own. Rotate picks the atmosphere\u2019s hue, size how thick '
+      + 'it is.',
     available: true,
   },
 ]

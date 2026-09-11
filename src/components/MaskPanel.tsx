@@ -117,7 +117,8 @@ export function MaskPanel({
               type="button"
               onClick={() => dispatch({ type: 'undo' })}
               disabled={!canUndo}
-              title="Undo (cmd-Z)"
+              data-hint="Undo"
+              data-hint-body="cmd-Z. One step per gesture, so a whole drag or slider sweep comes back at once."
               aria-label="Undo"
             >
               &#8630;
@@ -126,7 +127,8 @@ export function MaskPanel({
               type="button"
               onClick={() => dispatch({ type: 'redo' })}
               disabled={!canRedo}
-              title="Redo (cmd-shift-Z)"
+              data-hint="Redo"
+              data-hint-body="cmd-shift-Z."
               aria-label="Redo"
             >
               &#8631;
@@ -148,7 +150,8 @@ export function MaskPanel({
               aria-pressed={state.preset === preset.id}
               aria-label={preset.label}
               disabled={!preset.available}
-              title={`${preset.label} — ${preset.hint}`}
+              data-hint={preset.label}
+              data-hint-body={preset.hint}
               onClick={() => dispatch({ type: 'loadPreset', id: preset.id })}
             >
               <PresetIcon id={preset.id} />
@@ -161,7 +164,11 @@ export function MaskPanel({
         {/* Snap shares the heading's line for the same height reason as undo/redo. */}
         <div className="panel-head">
           <h2>Shape</h2>
-          <label className="snap" title={`Step the rotation anchor to anchor (${WEDGE_SPAN}°)`}>
+          <label
+            className="snap"
+            data-hint={`Snap ${WEDGE_SPAN}\u00b0`}
+            data-hint-body={`Make the rotate slider step anchor to anchor, so the mask\u2019s vertices land on the named hues. Type an exact angle in the box beside it instead when you want something between.`}
+          >
             <input
               type="checkbox"
               checked={snap}
@@ -177,7 +184,11 @@ export function MaskPanel({
           focus whichever the browser picked. The slider and the field carry their own
           aria-labels instead.
         */}
-        <div className="slider">
+        <div
+          className="slider"
+          data-hint="Rotate"
+          data-hint-body="Turns the mask about the wheel's centre, which chooses WHICH hues the scheme lands on without changing the scheme. Type an exact angle to write a palette down and get it back."
+        >
           <span>Rotate</span>
           <NumberField
             value={state.rotation}
@@ -218,7 +229,11 @@ export function MaskPanel({
           />
         </div>
 
-        <div className="slider">
+        <div
+          className="slider"
+          data-hint="Size"
+          data-hint-body="Scales the mask about the centre, so it trades saturation for restraint: a smaller mask keeps the same hues but mutes all of them. Below about half size the handles crowd together."
+        >
           <span>Size</span>
           <NumberField
             value={state.size * 100}
@@ -263,7 +278,8 @@ export function MaskPanel({
           {state.enabledBrands.length > 0 && (
             <label
               className="snap"
-              title="Shade the wheel where no enabled paint comes within 5%"
+              data-hint="Mark unreachable"
+              data-hint-body="Shade the parts of the wheel no enabled paint comes within 5% of. Roughly 40% of the disk is out of reach even with every catalogue on, and it is not the rim: red reaches the edge while blue and magenta give out around half saturation."
             >
               <input
                 type="checkbox"
@@ -278,7 +294,11 @@ export function MaskPanel({
           {BRANDS.map((brand) => {
             const on = state.enabledBrands.includes(brand)
             return (
-              <label key={brand} title={`${brand} — ${paintCount(brand)} paints`}>
+              <label
+                key={brand}
+                data-hint={brand}
+                data-hint-body={`${paintCount(brand)} paints matched independently of the other brands, so a colour can match several. Turning a brand off shortens every card in the list.`}
+              >
                 <input
                   type="checkbox"
                   checked={on}
@@ -300,10 +320,22 @@ export function MaskPanel({
         {/* Side by side: stacked, the two buttons cost enough height to push the
             D10 caveat below the fold on a 1280x720 screen. */}
         <div className="export-buttons">
-          <button type="button" onClick={() => save(onSaveSheet)} disabled={saving}>
+          <button
+            type="button"
+            onClick={() => save(onSaveSheet)}
+            disabled={saving}
+            data-hint="Save PDF"
+            data-hint-body="A printable sheet: the wheel with your mask on it, every colour with its paint matches, and the three 60-30-10 palettes. Named from the colours, so re-exporting the same palette overwrites rather than piling up. Lands in your downloads."
+          >
             {saving ? '...' : 'Save PDF'}
           </button>
-          <button type="button" onClick={() => save(onSaveJpeg)} disabled={saving}>
+          <button
+            type="button"
+            onClick={() => save(onSaveJpeg)}
+            disabled={saving}
+            data-hint="Save JPEG"
+            data-hint-body="The same sheet as one tall image, for a phone at the bench rather than paper."
+          >
             {saving ? '...' : 'Save JPEG'}
           </button>
         </div>

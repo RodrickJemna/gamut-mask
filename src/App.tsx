@@ -10,6 +10,7 @@ import './App.css'
 import { MaskOverlay } from './components/MaskOverlay.tsx'
 import { MaskPanel } from './components/MaskPanel.tsx'
 import { SampleList } from './components/SampleList.tsx'
+import { HintTip } from './components/HintTip.tsx'
 import { SchemeStrip } from './components/SchemeStrip.tsx'
 import { WheelCanvas } from './components/WheelCanvas.tsx'
 import { toHex } from './color/format.ts'
@@ -227,6 +228,8 @@ export default function App() {
         highlighted={highlighted}
         onHighlight={setHighlighted}
       />
+      {/* D56 — one hover explanation for the whole app; see HintTip. */}
+      <HintTip />
     </main>
   )
 }

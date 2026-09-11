@@ -53,7 +53,8 @@ function Chip({ wheel, active, onSelect }: { wheel: WheelSpec } & Props) {
       role="radio"
       aria-checked={selected}
       aria-label={`${wheel.label} wheel`}
-      title={`${wheel.label} — ${wheel.hint}`}
+      data-hint={`${wheel.label} wheel`}
+      data-hint-body={wheel.hint}
       onClick={() => onSelect(wheel.id)}
     >
       <canvas ref={canvasRef} width={side} height={side} aria-hidden="true" />

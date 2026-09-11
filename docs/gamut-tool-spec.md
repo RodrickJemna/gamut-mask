@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.36
+Verzió: 0.37
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -149,6 +149,31 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D56 — Hover-magyarázat minden kontrollon.** A natív `title` helyett saját tooltip.
+  - **Miért nem a `title`**: kb. egy másodperc késéssel jön, nem stílusozható, és a
+    többsoros szöveget csonkolja. Ilyen sűrű panelen épp a késés a baj: azért mutat rá az
+    ember az „S 41%"-ra, hogy megtudja, mit jelent, nem azért, hogy várjon.
+  - **Data-attribútumokkal, dokumentum-szinten figyelve**, tehát semmit nem kell a
+    komponens-fán átvezetni: bármelyik elem beszáll a `data-hint`-tel (cím) és a
+    `data-hint-body`-val. A legközelebbi ilyen felmenő nyer, tehát egy gomb belső canvasa
+    vagy spanja magától örökli a tulajdonosáét. Az alternatíva — context plusz egy prop
+    minden kontrollon — sok vízvezeték egy tooltipért, és az a fajta, ami félig marad.
+  - **A cél elemhez pozicionálva, nem a kurzorhoz**: így nem ugrál, ahogy az egér a
+    kártyán belül mozog, és **fókuszra is** megjeleníthető, ahol egyáltalán nincs
+    kurzorpozíció. A viewport széléhez vágva, és ha alul nem fér, fölé kerül.
+  - **Mit magyaráz.** A preset-ikonok a séma nevét és hogy **mire jó** — a jellemzéseket
+    ott, ahol Gurney ad ilyet, **az ő szavaival**, mert ezek dokumentált hangulatú, nevesített
+    sémák, és „élénk és modern"-re átfogalmazva épp az az egy rész veszne el, amit a
+    festő nem tud leolvasni a körről. A színkártyák azt, **mit jelentenek a számok** — és
+    kiemelten azt, hogy az `S` a kör **hue-nként normalizált** rádiusza, nem absztolút
+    chroma, mert pont ez tette önkényesnek a 60-30-10 szerepsorrendjét, amikor a szerző
+    ellenőrizte. A festék `range`-e is ide került: a kártyán nincs rá hely, viszont ez
+    mondja meg, melyik termékvonalat kell megvenni (a Model Air és a Model Color nem
+    ugyanaz ecset alatt).
+  - **Átmeneti overlay, tehát lehet kerete és kiemelt háttere**, amit a 6. pont a
+    *layoutra* kizár: ez nem egy kártya, ami a figyelemért versenyez, hanem az, amire
+    rámutattál, és visszabeszél. `pointer-events: none`, különben a tipp a kurzor alá
+    kerülhet és elrejtheti a saját célját.
 - **D55 — Hat preset, ikonos rácsban.** A négy szöveges, egymás alatti gomb helyett hat
   ikon 3×2-es rácsban.
   - **Az ikon a preset saját kontúrja**, a `buildPreset` geometriájából rajzolva, nem
@@ -888,3 +913,6 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   kényszeríti ki a nagyságot, így bejött egy séma, ahol az akcentus 7%-kal volt erősebb a
   másodlagosnál. Két reziduum, hipotenúzaként összevonva (`off %`), a két fél a tooltipben.
   A szakasz tooltipje az erősséget is kiírja, mert a lista `S`-e hue-nként normalizált.
+- 0.37 — **hover-magyarázat (D56)**: saját tooltip a natív `title` helyett, data-attribútumokkal
+  és dokumentum-szintű figyeléssel. A preset-ikonok Gurney jellemzésével mondják el, mire
+  jók; a színkártyák elmagyarázzák a számokat, köztük hogy az `S` hue-nként normalizált.

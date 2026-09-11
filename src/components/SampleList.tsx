@@ -177,21 +177,44 @@ export function SampleList({ samples, brands, highlighted, onHighlight }: Props)
                           // almost free for anyone tabbing through the list.
                           onFocus={() => onHighlight(index)}
                           onBlur={() => onHighlight(null)}
-                          title={
-                            matches.length > 0
-                              ? matches
-                                  .map(
-                                    (m) =>
-                                      `${m.paint.brand} ${m.paint.ref} ${m.paint.name} (${m.paint.range})` +
-                                      // Spelt out here, where there is room for a
-                                      // sentence, since one word on the row cannot say
-                                      // what it is being compared against.
-                                      (m.drift === null
-                                        ? ''
-                                        : `\nThe catalogue swatch of this bottle is ${m.drift} than the colour above.`),
-                                  )
-                                  .join('\n')
-                              : 'Copy hex — no paint within 5%'
+                          /*
+                            D56 — the hover explains the READINGS, not the paints. The
+                            paint lines are already spelled out on the card; what is not
+                            legible is what L, S and the deltas mean, and S in particular
+                            is the wheel's per-hue-normalised radius rather than absolute
+                            chroma, which is exactly the thing that made a scheme's role
+                            order look arbitrary when it was checked.
+                          */
+                          data-hint={hex}
+                          data-hint-body={
+                            `L ${lightnessLabel(sample.oklab.L)} is Oklab lightness on 0-100. `
+                            + `S ${saturationLabel(sample.t)}% is saturation as a share of `
+                            + 'what THIS hue can reach, not absolute chroma \u2014 a blue and a '
+                            + 'red at the same S differ by about a quarter in chroma.\n'
+                            + (closest === null
+                              ? 'No brand is enabled, so nothing was matched.'
+                              : matches.length === 0
+                                ? `The nearest paint is \u0394${differencePercent(closest.distance)}% away in Oklab; `
+                                  + 'anything over 5% is reported as no match rather than '
+                                  + 'offered as one.'
+                                : `\u0394 is the Oklab distance to that bottle as a percentage, `
+                                  + 'from its printed catalogue swatch. A word after it says '
+                                  + 'which way it is off \u2014 darker, lighter, greyer or stronger.')
+                            + (matches.length > 0
+                              ? '\n'
+                                + matches
+                                    // The RANGE is only here: the card itself has no room
+                                    // for it, and it is what tells you which product line
+                                    // to actually buy — Model Air and Model Color are not
+                                    // interchangeable on a brush.
+                                    .map(
+                                      (m) =>
+                                        `${BRAND_TAG[m.paint.brand]} ${m.paint.ref} `
+                                        + `${m.paint.name} (${m.paint.range})`.replace('  ', ' '),
+                                    )
+                                    .join('\n')
+                              : '')
+                            + '\nClick to copy the hex.'
                           }
                         >
                           <span className="sample-swatch" style={{ background: hex }} />

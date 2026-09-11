@@ -140,12 +140,20 @@ function SchemeBar({
                 reaches 0.313 where red's reaches 0.258 — so without this the ordering
                 looks arbitrary exactly when someone checks it.
               */
-              title={
-                `${ROLE_NAMES[i]} — ${Math.round(role.share * 100)}% — ${hex}\n`
-                + `strength ${strength(role.sample).toFixed(3)}`
-                + ` (L ${role.sample.oklab.L.toFixed(2)}`
-                + ` x chroma ${Math.hypot(role.sample.oklab.a, role.sample.oklab.b).toFixed(3)})\n`
-                + `${paintsFor.get(role.sample) ?? ''}`
+              data-hint={`${ROLE_NAMES[i]} \u2014 ${Math.round(role.share * 100)}% \u2014 ${hex}`}
+              /*
+                The strength is spelled out because the list's own S column is the wheel's
+                PER-HUE-NORMALISED radius, while the roles are ranked on absolute chroma.
+                Two colours can read "S 41%" and differ by a quarter in chroma, so without
+                this the ordering looks arbitrary exactly when someone checks it.
+              */
+              data-hint-body={
+                `Strength ${strength(role.sample).toFixed(3)}`
+                + ` = L ${role.sample.oklab.L.toFixed(2)}`
+                + ` \u00d7 chroma ${Math.hypot(role.sample.oklab.a, role.sample.oklab.b).toFixed(3)}.`
+                + ' The areas run inversely to strength, so the weakest colour takes the'
+                + ' largest one.\n'
+                + (paintsFor.get(role.sample) ?? '')
               }
               aria-label={`${ROLE_NAMES[i]}, ${Math.round(role.share * 100)} percent, ${hex}`}
             />
@@ -167,11 +175,12 @@ function SchemeBar({
         ))}
         <span
           className="scheme-balance"
-          title={
-            'How far from Munsell-balanced at these areas. 0% needs the weighted '
-            + 'lightness x chroma of the three to be equal AND to cancel.\n'
-            + `hues not opposing: ${Math.round(scheme.direction * 100)}%\n`
-            + `strengths not in 1:2:6: ${Math.round(scheme.magnitude * 100)}%`
+          data-hint={`Off ${Math.round(scheme.imbalance * 100)}% from balanced`}
+          data-hint-body={
+            'Munsell balance needs the three areas \u00d7 lightness \u00d7 chroma to be equal '
+            + 'AND their hues to cancel. 0% is exact.\n'
+            + `Hues not opposing: ${Math.round(scheme.direction * 100)}%\n`
+            + `Strengths not in 1:2:6: ${Math.round(scheme.magnitude * 100)}%`
           }
         >
           off {Math.round(scheme.imbalance * 100)}%

@@ -765,3 +765,39 @@
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
 }
+
+
+/*
+ * D56 — the hover explanation. A transient overlay, so it may have the border and the
+ * raised surface that section 6 rules out for the LAYOUT: it is not a card competing for
+ * attention, it is the thing you are pointing at answering back.
+ */
+.hint-tip {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 300px;
+  padding: 7px 9px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  /* Pointer-transparent, or the tip could sit under the cursor and hide its own target. */
+  pointer-events: none;
+}
+
+.hint-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+
+.hint-body {
+  /* pre-line so the explanations can break where they mean to. */
+  white-space: pre-line;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
