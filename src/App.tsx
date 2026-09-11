@@ -177,11 +177,15 @@ export default function App() {
           D10 requires the sRGB assumption to be stated in the UI. It lives here rather
           than above the colour list so it stays visible without competing for the room
           the list needs.
+
+          KEEP IT SHORT. This is the bottom of the column, so it is what falls off a
+          1280x720 screen when anything above it grows — which has now happened twice, at
+          D50 and again when a fourth brand made the filter wrap to two rows. The claim
+          D10 actually requires is the sRGB assumption; the rest is trimmed to fit.
         */}
         <p className="caveat">
-          Assumes sRGB: on an uncalibrated monitor this plans relative harmony, it does
-          not predict paint colour. Matches use printed catalogue swatches, not measured
-          paint.
+          Assumes sRGB: on an uncalibrated monitor this plans relative harmony, not
+          absolute paint colour. Matches use printed catalogue swatches.
         </p>
       </div>
       <SampleList

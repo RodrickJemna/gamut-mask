@@ -1,6 +1,6 @@
 # Gamut Mask Tool — spec
 
-Verzió: 0.27
+Verzió: 0.28
 Státusz: FÁZIS 2 — v1 leimplementálva. A design zárva; a 4. pont D38–D39 tételei és a
 D35 pontosítása implementáció közbeni mérésekből származnak.
 
@@ -149,6 +149,41 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
   - **Kizárva**: segédmédiumok és lakkok (AK11231–11235, RC801–803). A swatch-ük
     placeholder szürke — az öt AK medium mind `#636363` —, tehát bennhagyva bármelyik
     semleges minta a „Matte Medium"-ra illeszkedett volna.
+- **D52 — Negyedik gyártó: Citadel (Games Workshop).** 105 szín, `src/paints/citadel.ts`,
+  a „Citadel Painting System" plakátból. A `BRANDS` bővítése ismét elég volt; a sor
+  magassága (`ENTRY_H`) magától nőtt négy sorra.
+  - **A forrás nem katalógus, hanem recept-táblázat**: soronként „alapozó, majd ezek a
+    rétegek, majd ezek a szárazecsetelések". Ebből következik, hogy **csak azok a
+    festékek szerepelnek, amiket a GW ezekben a receptekben használ**, nem a teljes
+    Citadel paletta.
+  - **Nincs benne semmilyen szövegréteg**: egyetlen 1198×4468-as JPEG, a pdfplumber nulla
+    karaktert lát. A neveket **optikailag** kell kiolvasni — ez az egyetlen extractor,
+    ami OCR-t használ. A macOS **Vision** keretrendszer csinálja
+    (`scripts/ocr-vision.swift`), mert a rendszer Pythonja 3.9, amivel a modern pyobjc nem
+    fordul, és mert így nem kell Tesseractot telepíteni egy hobbiprojekthez.
+  - **Cellánként kell OCR-ezni**, nem egyben az oldalt: 1198 px szélességen a cellaszöveg
+    olyan kicsi, hogy a Vision csonkol („WHITE SCAP", „CASANDOR!"). A kivágott cella 4×
+    felnagyítva megy be, és ez egyben meg is oldja a szöveg–cella párosítást.
+  - **Nincsenek termékkódok.** A Citadel festékeket a nevük azonosítja, ezért a `ref`
+    **maga a név**, a `name` pedig üres — különben a UI minden sorban kétszer írná ki
+    ugyanazt. A `Paint.name` innentől lehet üres; teszt köti, hogy pontosan a Citadelnél
+    az és sehol máshol.
+  - **A színek a cella móduszából**, ugyanúgy, mint a Pro Acrylnál és ugyanazért: a név rá
+    van nyomtatva a swatchre. A festékek **ismétlődnek** a sorok között (a DAWNSTONE négy
+    cellában szerepel), és ez ingyen ellenőrzés: a megtartott 105 szín **mindegyike
+    minden előfordulásában azonos értéket adott**.
+  - **A shade-ek maguktól estek ki.** A wash-cellákat **átmenettel** rajzolják (fehérbe
+    fut ki, jelezve az áttetszőséget), így a módusz-arányuk összeomlik — pontosan úgy,
+    ahogy a Pro Acryl 1-Step swatcheké. A `MIN_FLAT_SHARE` így **pontosan a GW tizenkét
+    shade-jét** dobta ki (Agrax Earthshade, Nuln Oil, Reikland Fleshshade, …) **névlista
+    nélkül**, tisztán a bizonyíték alapján. A metálok, glaze-ek, technical és texture
+    termékek a fő rács alatt vannak, azokat pozíció szerint hagyjuk ki.
+  - **A plakát nem színhelyes katalógus**: két festékpár azonos swatch-színnel szerepel
+    rajta (Flash Gitz Yellow = Hexos Palesun, Praxeti White = White Scar). Ez a forrás
+    pontatlansága, nem a kinyerésé — ellenőrizve a cellák képén. Az illesztő ilyenkor a
+    korábbi katalógus-bejegyzést adja vissza, ami stabil és dokumentált viselkedés.
+  - **Mit ad hozzá**: területi fedés 59.7% → **60.2%**, önmagában 33.6%. A négy preseten a
+    minták **11%-ánál** a Citadel a legközelebbi tégely; új találat nulla.
 - **D51 — Harmadik gyártó: Monument Hobbies Pro Acryl.** 138 szín, `src/paints/proacryl.ts`,
   a „Set List.pdf"-ből kinyerve. A `BRANDS` lista bővítése plusz egy adatmodul; a
   gyártó-szűrő (D48), az elérhetőségi mező (D50) és a lap sormagassága mind a `BRANDS`-ből
@@ -204,8 +239,8 @@ szögét, és látja alatta a maskon belüli színeket. Semmi több.
     hogy a fátyol és a `matchingPaints` **minden rácspontban** egyetért. Az árnyékolt
     terület és a listában lévő szöveg ugyanaz a kérdés; a D40-nek már van sebhelye abból,
     amikor két ilyen olvasat elcsúszott.
-  - **A fedés valódi száma**: a korong **területének** kb. 40%-a elérhetetlen mind a három
-    katalógussal együtt is (két gyártóval 42% volt, lásd D51). Az implementációs jegyzetben szereplő 73.4% **cellánkénti**
+  - **A fedés valódi száma**: a korong **területének** kb. 40%-a elérhetetlen mind a négy
+    katalógussal együtt is (két gyártóval 42% volt, lásd D51, D52). Az implementációs jegyzetben szereplő 73.4% **cellánkénti**
     fedés egy egyenletes theta–t rácson, ami túlsúlyozza a közepet: egy t=0.05-es cella a
     huszadát fedi egy t=1-esnek. Területre vetítve a fedés ~58%.
   - **És nem „a perem"**: a vörös a peremig elérhető, a kék és a magenta viszont már
@@ -630,3 +665,8 @@ lépésben: `.gitignore` először, aztán kis logikus commitok.
   gyártóra volt szabva, most számított. A fedés 58.3% → 59.7% területre, viszont a minták
   22%-ánál a Pro Acryl a legközelebbi tégely. Mellékesen javítva: a D50 jelölőnégyzete a
   PAINTS fejlécsorába költözött, mert a saját sora 1280×720-on lelökte a D10-es caveatot.
+- 0.28 — **negyedik gyártó (D52)**: 105 Citadel szín a Painting System plakátból. Az
+  egyetlen OCR-es extractor (macOS Vision), mert a forrásban nincs szövegréteg, és az
+  egyetlen márka, ahol a `ref` maga a név. A tizenkét GW shade-et a lapossági küszöb
+  dobta ki, névlista nélkül. Mellékesen: a caveat szövege rövidebb, mert négy
+  jelölőnégyzet két sorba tördelődik és megint lelökte volna 1280×720-on.

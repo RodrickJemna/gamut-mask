@@ -29,10 +29,13 @@ describe('catalogue integrity', () => {
     expect(new Set(PAINTS.map((p) => p.ref)).size).toBe(PAINTS.length)
   })
 
-  it('has a well-formed hex and a non-empty name for every entry', () => {
+  it('has a well-formed hex and something to display for every entry', () => {
     for (const p of PAINTS) {
       expect(p.hex).toMatch(/^#[0-9a-f]{6}$/)
-      expect(p.name.length).toBeGreaterThan(0)
+      // Ref OR name: Citadel prints no codes, so its ref is the name and `name` is
+      // empty (D52). What must never happen is a row with nothing to render.
+      expect((p.ref + p.name).length).toBeGreaterThan(0)
+      expect(p.ref.length).toBeGreaterThan(0)
       expect(p.range.length).toBeGreaterThan(0)
     }
   })
@@ -185,7 +188,12 @@ describe('several brands (D44, D51)', () => {
    * publish full ranges. A single ">500" hid nothing useful and broke on the third brand.
    */
   it('carries every catalogue, each a plausible size', () => {
-    const expected: Record<Brand, number> = { AK: 500, Vallejo: 500, 'Pro Acryl': 100 }
+    const expected: Record<Brand, number> = {
+      AK: 500,
+      Vallejo: 500,
+      'Pro Acryl': 100,
+      Citadel: 50,
+    }
     for (const brand of BRANDS) {
       expect(PAINTS.filter((p) => p.brand === brand).length).toBeGreaterThan(
         expected[brand],
@@ -201,8 +209,21 @@ describe('several brands (D44, D51)', () => {
       // Monument numbers each set differently: plain, Fluorescent, Signature, Expert
       // Artist, and the AMP line.
       'Pro Acryl': /^(\d{3}|F\d{2}|S\d{2}|E\d{3}|AMP-\d{3})$/,
+      // Citadel prints no codes at all, so the ref is the name (D52).
+      Citadel: /^[A-Z0-9][A-Z0-9 '-]*$/,
     }
     for (const p of PAINTS) expect(p.ref).toMatch(formats[p.brand])
+  })
+
+  /**
+   * Citadel is the brand where `name` is empty because the ref already is the name; every
+   * other brand must still carry both, or a row would render as a bare code.
+   */
+  it('gives every paint a name, except Citadel where the ref is the name', () => {
+    for (const p of PAINTS) {
+      if (p.brand === 'Citadel') expect(p.name).toBe('')
+      else expect(p.name.length).toBeGreaterThan(0)
+    }
   })
 
   it('keeps refs unique within a brand, so a paint has one identity', () => {

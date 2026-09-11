@@ -18,7 +18,7 @@ search) were deliberately removed and must not come back.
 
 Paint matching is the one exception: it was D11 ("not even later") and was reopened by
 the author in 0.11. It now exists as D40, with the catalogues in `src/paints/` — three
-brands as of D51. D11 is in section 5 with the rest of the withdrawn decisions.
+brands as of D52. D11 is in section 5 with the rest of the withdrawn decisions.
 
 `BRANDS` in `src/paints/types.ts` is the single list the brand filter (D48), the
 reachability fields (D50) and the sheet's row height derive from, so adding a catalogue is
@@ -48,10 +48,12 @@ Plain CSS with custom properties — the exact greys are functional, not decorat
 Tailwind, a router, or a component library. State is small enough for `useReducer`.
 
 The paint catalogues in `src/paints/` are generated data, not a dependency. One extractor
-per brand — `scripts/extract-paints.py` (AK), `extract-vallejo.py`, `extract-proacryl.py` —
-then `scripts/generate-catalogue.py --<brand> <json>` writes the module. They need
-pdfplumber, pypdf and Pillow in a throwaway virtualenv, and the last two also rasterise
-with macOS `qlmanage`: build-time only, and nothing in the app imports any of it.
+per brand — `scripts/extract-paints.py` (AK), `extract-vallejo.py`, `extract-proacryl.py`,
+`extract-citadel.py` — then `scripts/generate-catalogue.py --<brand> <json>` writes the
+module. They need pdfplumber, pypdf and Pillow in a throwaway virtualenv; Vallejo and Pro
+Acryl also rasterise with macOS `qlmanage`, and Citadel additionally runs OCR through
+`scripts/ocr-vision.swift` because its source has no text layer at all. All build-time
+only, and nothing in the app imports any of it.
 
 Each extractor's docstring records the traps in its PDF and the measurements behind its
 thresholds. Read it before changing one; every constant in there was arrived at by

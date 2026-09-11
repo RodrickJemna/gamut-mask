@@ -40,7 +40,9 @@ def emit(path, brand, source, script, const, rows):
     out = [HEADER.format(brand=brand, source=source, script=script, const=const)]
     for p in rows:
         out.append(
-            f"  {{ brand: '{brand}', ref: '{p['ref']}', name: '{esc(p['name'])}', "
+            # The ref is escaped too: it was not, which was harmless while every ref
+            # was numeric and broke the moment Citadel's "BUGMAN'S GLOW" arrived.
+            f"  {{ brand: '{brand}', ref: '{esc(p['ref'])}', name: '{esc(p['name'])}', "
             f"range: '{esc(p['range'])}', hex: '{hexof(p['rgb'])}' }},"
         )
     out.append(']\n')
@@ -56,6 +58,10 @@ BRANDS = {
     'proacryl': (
         'proacryl.ts', 'Pro Acryl', 'Set List.pdf (Monument Hobbies)',
         'extract-proacryl.py', 'PRO_ACRYL_PAINTS',
+    ),
+    'citadel': (
+        'citadel.ts', 'Citadel', 'CitadelPaintingSystem.pdf (Games Workshop)',
+        'extract-citadel.py', 'CITADEL_PAINTS',
     ),
 }
 

@@ -204,10 +204,11 @@ All three questions that were open during the build are settled, in spec version
   handles overlap again and the answer is still to scale the mask up to edit it.
 - **Export lands in the browser's download folder**, not beside the HTML. No page can
   create a folder next to itself; see D43.
-- **The colour list scrolls at 1280x720 with three brands.** D47 made the list short
+- **The colour list scrolls at 1280x720 with three or more brands.** D47 made the list short
   (seven colours for a triad, eight to eleven for the arc presets), but each card carries
-  one paint line per brand, so a third catalogue took the default triad's cards from 71px
-  to 89px and the column from overflowing by 34px to 125px. It scrolls internally while
+  one paint line per brand, so each catalogue adds about 18px to every card: 71px at two
+  brands, 89px at three, 108px at four, with the column overflowing by 34px, 125px and
+  216px respectively. It scrolls internally while
   the wheel and controls stay put, which is what D41 asks for; nothing is unreachable.
   Turning brands off shortens the cards again.
 - **Paint coverage is partial, by brand.** AK: 647 from the equivalence tables (3GEN plus
@@ -218,8 +219,11 @@ All three questions that were open during the build are settled, in spec version
   Metallic ranges, where a flat swatch misrepresents a metallic. 45 Vallejo codes on
   chart pages have no swatch above them and are skipped. Pro Acryl: 138 of the 187 codes
   in the set list; excluded are the metallics, the transparents and washes, and the 24
-  1-Step paints, whose swatches are printed as a gradient (D51).
-- **Coverage: 74.6% of the disk per CELL, but only ~60% by AREA.** Both figures are of
+  1-Step paints, whose swatches are printed as a gradient (D51). Citadel: 105 of the 117
+  names on the Painting System chart — only the paints GW uses in those recipes, not the
+  range — with the twelve shades excluded because their swatches are drawn as a gradient
+  (D52).
+- **Coverage: 75.0% of the disk per CELL, but only ~60% by AREA.** Both figures are of
   the same grid; the per-cell one over-counts the centre, because a cell at t = 0.05
   covers a twentieth of the area of one at t = 1. By area — which is what the eye sees on
   the wheel and what D50's scrim shades — roughly 42% of the disk is unreachable. AK alone
